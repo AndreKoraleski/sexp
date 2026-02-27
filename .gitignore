@@ -1,0 +1,14 @@
+# C
+*.o
+*.so
+*.a
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+
+# Dev
+.venv/
