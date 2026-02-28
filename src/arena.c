@@ -26,7 +26,6 @@ Arena arena_init(size_t cap) {
 void *arena_alloc(Arena *arena, size_t size) {
     size_t aligned = ALIGN_UP(size);
 
-    /* Grow arena if necessary */
     if (arena->pos + aligned > arena->cap) {
         size_t new_cap = arena->cap << 1;
 
@@ -58,7 +57,6 @@ void *arena_alloc(Arena *arena, size_t size) {
 }
 
 void arena_reset(Arena *arena) {
-    /* Walk to the oldest chunk (prev == NULL), freeing everything newer. */
     Arena *chunk = arena->prev;
 
     if (chunk == NULL) {
@@ -75,7 +73,6 @@ void arena_reset(Arena *arena) {
         chunk = prev;
     }
 
-    /* chunk now points to the oldest one */
     free(arena->base);
     arena->base = chunk->base;
     arena->cap  = chunk->cap;

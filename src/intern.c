@@ -5,6 +5,8 @@
 #include "arena.h"
 #include "intern.h"
 
+#define INTERN_TABLE_INIT_CAP  64
+#define INTERN_TABLE_MAX_LOAD   2
 
 static const uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
 static const uint64_t FNV_PRIME        = 1099511628211ULL;
@@ -28,7 +30,7 @@ static uint64_t hash(const void *data, size_t len) {
 }
 
 static int table_insert(InternHashTable *table, uint64_t h, AtomId id) {
-    if (table->count >= table->cap >> 1)
+    if (table->count >= table->cap / INTERN_TABLE_MAX_LOAD)
         return -1;
 
     uint32_t mask = table->cap - 1;
@@ -164,7 +166,7 @@ int intern_init(void) {
     if (global_pool.arena.base == NULL)
         return -1;
 
-    uint32_t initial_cap = 1 << 6;
+    uint32_t initial_cap = INTERN_TABLE_INIT_CAP;
     global_pool.table.hashes = arena_alloc(
         &global_pool.arena,
         initial_cap * sizeof(uint64_t)
@@ -196,7 +198,7 @@ AtomId intern_string(const char *str, size_t len) {
     if (id != 0)
         return id;
 
-    if (global_pool.table.count >= global_pool.table.cap >> 1)
+    if (global_pool.table.count >= global_pool.table.cap / INTERN_TABLE_MAX_LOAD)
         if (table_grow() != 0)
             return 0;
 

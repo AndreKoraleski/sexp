@@ -1,4 +1,5 @@
 #pragma once
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -39,7 +40,7 @@ Arena arena_init(size_t cap);
  *
  * If the current chunk is exhausted, a new chunk of double the capacity is 
  * allocated and linked. Returns NULL only if system memory is exhausted.
- *  *
+ *
  * @param arena  Pointer to the arena to allocate from.
  * @param size   Number of bytes to allocate.
  * @return       Aligned pointer to allocated memory, or NULL on failure.

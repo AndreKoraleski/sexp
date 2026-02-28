@@ -1,5 +1,7 @@
 #pragma once
+
 #include <stdint.h>
+
 #include "intern.h"
 
 /**
@@ -11,8 +13,9 @@
  * Discriminant for a node in an S-expression tree.
  */
 typedef enum NodeKind {
-    NODE_ATOM, /**< Leaf node carrying an interned atom string. */
-    NODE_LIST, /**< Interior node carrying a list of child nodes. */
+    NODE_ATOM,    /**< Leaf node carrying an interned atom string. */
+    NODE_LIST,    /**< Interior node carrying a list of child nodes. */
+    NODE_INVALID, /**< Sentinel returned for out-of-bounds or invalid indices. */
 } NodeKind;
 
 /**
@@ -34,17 +37,15 @@ typedef struct Node {
 /**
  * A parsed S-expression tree.
  *
- * Nodes are stored in a flat array indexed from zero. The root node is always 
- * at index zero. Node memory is managed by an internal Arena. The intern pool 
- * is shared and reference counted - the tree increments the count on creation 
- * and decrements on free.
+ * Nodes are stored in a flat array indexed from zero. Node memory is managed 
+ * by an internal Arena. The global intern pool is retained on creation and 
+ * released on free.
  */
 typedef struct SExp {
-    Arena       arena;  /**< Backing memory for the node array. */
-    Node   *nodes;  /**< Flat array of all nodes in the tree. */
-    uint32_t    count;  /**< Number of nodes currently in the tree. */
-    uint32_t    cap;    /**< Capacity of the node array in nodes. */
-    InternPool *intern; /**< Shared intern pool, reference counted. */
+    Arena    arena; /**< Backing memory for the node array. */
+    Node    *nodes; /**< Flat array of all nodes in the tree. */
+    uint32_t count; /**< Number of nodes currently in the tree. */
+    uint32_t cap;   /**< Capacity of the node array in nodes. */
 } SExp;
 
 /**
@@ -52,11 +53,11 @@ typedef struct SExp {
  *
  * Retains a reference to the global intern pool automatically.
  *
- * @param buf  Pointer to the input buffer.
- * @param len  Length of the input buffer in bytes.
- * @return     A parsed SExp, or a zeroed struct on failure.
+ * @param src      Pointer to the input buffer.
+ * @param src_len  Length of the input buffer in bytes.
+ * @return         A parsed SExp, or a zeroed struct on failure.
  */
-SExp sexp_parse(const char *buf, size_t len);
+SExp sexp_parse(const char *src, size_t src_len);
 
 /**
  * Releases all memory owned by the tree.
@@ -72,46 +73,46 @@ void sexp_free(SExp *tree);
  * Returns the index of the first child of a list node.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the list node.
+ * @param idx   Index of the list node.
  * @return      Index of the first child, or SEXP_NULL_INDEX if none.
  */
-uint32_t sexp_first_child(const SExp *tree, uint32_t node);
+uint32_t sexp_first_child(const SExp *tree, uint32_t idx);
 
 /**
  * Returns the index of the next sibling of a node.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the node.
+ * @param idx   Index of the node.
  * @return      Index of the next sibling, or SEXP_NULL_INDEX if none.
  */
-uint32_t sexp_next_sibling(const SExp *tree, uint32_t node);
+uint32_t sexp_next_sibling(const SExp *tree, uint32_t idx);
 
 /**
  * Returns the index of the parent of a node.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the node.
+ * @param idx   Index of the node.
  * @return      Index of the parent, or SEXP_NULL_INDEX if root.
  */
-uint32_t sexp_parent(const SExp *tree, uint32_t node);
+uint32_t sexp_parent(const SExp *tree, uint32_t idx);
 
 /**
  * Returns the kind of a node.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the node.
- * @return      NODE_ATOM or NODE_LIST.
+ * @param idx   Index of the node.
+ * @return      NODE_ATOM, NODE_LIST, or NODE_INVALID if idx is out of bounds.
  */
-NodeKind sexp_kind(const SExp *tree, uint32_t node);
+NodeKind sexp_kind(const SExp *tree, uint32_t idx);
 
 /**
  * Returns the AtomId of an atom node.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the atom node.
+ * @param idx   Index of the atom node.
  * @return      AtomId for the node, or 0 if node is not NODE_ATOM.
  */
-AtomId sexp_atom(const SExp *tree, uint32_t node);
+AtomId sexp_atom(const SExp *tree, uint32_t idx);
 
 /**
  * Sets the atom value of a leaf node.
@@ -119,11 +120,11 @@ AtomId sexp_atom(const SExp *tree, uint32_t node);
  * The new value is interned automatically.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the atom node.
+ * @param idx   Index of the atom node.
  * @param str   Pointer to the new string bytes.
  * @param len   Length of the new string in bytes.
  */
-void sexp_set_atom(SExp *tree, uint32_t node, const char *str, size_t len);
+void sexp_set_atom(SExp *tree, uint32_t idx, const char *str, size_t len);
 
 /**
  * Inserts a node as a child of a list node after a given sibling.
@@ -134,9 +135,9 @@ void sexp_set_atom(SExp *tree, uint32_t node, const char *str, size_t len);
  * @param tree    Pointer to the tree.
  * @param parent  Index of the parent list node.
  * @param after   Index of the sibling to insert after, or SEXP_NULL_INDEX.
- * @param node    Index of the node to insert.
+ * @param child   Index of the node to insert.
  */
-void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t node);
+void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t child);
 
 /**
  * Removes a node from the tree.
@@ -145,9 +146,9 @@ void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t node);
  * links are updated automatically.
  *
  * @param tree  Pointer to the tree.
- * @param node  Index of the node to remove.
+ * @param idx   Index of the node to remove.
  */
-void sexp_remove(SExp *tree, uint32_t node);
+void sexp_remove(SExp *tree, uint32_t idx);
 
 /**
  * Serializes the tree to S-expression bytes.
