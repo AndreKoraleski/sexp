@@ -12,3 +12,8 @@ dist/
 
 # Dev
 .venv/
+venv/
+compile_commands.json
+
+# Docs
+docs/

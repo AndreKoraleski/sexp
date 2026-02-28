@@ -1,0 +1,17 @@
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  cert-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters
+
+WarningsAsErrors: "*"
+
+HeaderFilterRegex: "src/include/.*\\.h$"
+
+CheckOptions:
+  - key: cert-err33-c.CheckedFunctions
+    value: "malloc;calloc;realloc"

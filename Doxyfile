@@ -1,0 +1,19 @@
+PROJECT_NAME           = sexp
+PROJECT_BRIEF          = A minimal-allocation S-expression library for Python, backed by a C extension.
+
+INPUT                  = src/
+RECURSIVE              = YES
+STRIP_FROM_PATH        = src/
+
+OUTPUT_DIRECTORY       = docs/
+
+OPTIMIZE_OUTPUT_FOR_C  = YES
+JAVADOC_AUTOBRIEF      = YES
+EXTRACT_ALL            = NO
+
+WARN_IF_UNDOCUMENTED   = YES
+WARN_AS_ERROR          = YES
+
+GENERATE_LATEX         = NO
+HAVE_DOT               = NO
+QUIET                  = YES
