@@ -1,18 +1,16 @@
-add_executable(test_sexp
-    main.c
-    test_arena.c
-    test_intern.c
-    test_tree.c
-    ../unity/unity.c
-)
+set(UNITY_SRC ../unity/unity.c)
+set(UNITY_INC ../unity)
+set(LIB_INC   ../../src/include)
+set(COMPILE_OPTS -Wall -Wextra -Wpedantic)
 
-target_include_directories(test_sexp PRIVATE
-    ../unity
-    ../../src/include
-)
+function(add_sexp_test target source)
+    add_executable(${target} ${source} ${UNITY_SRC})
+    target_include_directories(${target} PRIVATE ${UNITY_INC} ${LIB_INC})
+    target_link_libraries(${target} sexp_core)
+    target_compile_options(${target} PRIVATE ${COMPILE_OPTS})
+    add_test(NAME ${target} COMMAND ${target})
+endfunction()
 
-
-target_link_libraries(test_sexp sexp_core)
-target_compile_options(test_sexp PRIVATE -Wall -Wextra -Wpedantic)
-
-add_test(NAME sexp_tests COMMAND test_sexp)
+add_sexp_test(test_arena  test_arena.c)
+add_sexp_test(test_intern test_intern.c)
+add_sexp_test(test_tree   test_tree.c)

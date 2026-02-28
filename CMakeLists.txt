@@ -7,6 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(sexp_core STATIC
     src/arena.c
+    src/intern.c
+    src/tree.c
 )
 
 target_include_directories(sexp_core PUBLIC src/include)
