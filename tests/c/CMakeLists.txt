@@ -1,6 +1,16 @@
 add_executable(test_sexp
-    placeholder_test.c
+    main.c
+    test_arena.c
+    test_intern.c
+    test_tree.c
+    ../unity/unity.c
 )
+
+target_include_directories(test_sexp PRIVATE
+    ../unity
+    ../../src/include
+)
+
 
 target_link_libraries(test_sexp sexp_core)
 target_compile_options(test_sexp PRIVATE -Wall -Wextra -Wpedantic)
