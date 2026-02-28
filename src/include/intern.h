@@ -1,8 +1,6 @@
 #pragma once
-
 #include <stddef.h>
 #include <stdint.h>
-
 #include "arena.h"
 
 /**
@@ -13,47 +11,41 @@
 typedef uint32_t AtomId;
 
 /**
- * Contiguous storage for interned strings.
- *
- * Strings are stored back-to-back and null-terminated, memory is allocated 
- * from an external Arena and individual deallocation is not supported.
- */
-typedef struct AtomStorage {
-    char   *base;  /**< Start of the string buffer. */
-    size_t  cap;   /**< Total capacity in bytes. */
-    size_t  pos;   /**< Next write offset in bytes. */
-} AtomStorage;
-
-
-/**
  * Open-addressed hash table for string interning.
  *
  * Uses linear probing. Capacity is always a power of two to allow mask-based 
  * indexing.
  *
- * If a hash slot is zero, it is considered empty. This allows us to avoid 
- * storing the string content in the hash table, as the full 64-bit hash is 
- * sufficient for collision resolution.
+ * A hash value of zero indicates an empty slot. Two strings with the same hash
+ * are a true collision and are handled by probing - the hash alone does not 
+ * guarantee uniqueness, though the probability of a collision is negligible.
  */
 typedef struct InternHashTable {
     uint64_t *hashes; /**< Full 64-bit hashes (0 = empty slot). */
     AtomId   *ids;    /**< AtomId for each occupied slot. */
     uint32_t  count;  /**< Number of occupied slots. */
-    uint32_t  cap;    /**< Total slot count (power of two). */
+    uint32_t  cap;    /**< Total slot count, always a power of two. */
 } InternHashTable;
 
-
 /**
- * String interning pool.
+ * Global string interning pool.
  *
- * Maps string content to stable AtomIds. Duplicate strings share the same id.
+ * Maps string content to stable AtomIds using an open-addressed hash table 
+ * backed by an Arena. Duplicate strings across all parses share the same 
+ * AtomId.
  *
- * Combines contiguous storage for string data and an open-addressed hash table
- * for deduplication.
+ * Uses generational eviction to bound memory growth. Atoms unseen for max_gen 
+ * parses are candidates for compaction. A bitmask tracks liveness per 
+ * generation in O(n/64) time.
  *
- * All memory is allocated from a provided Arena.
+ * Ownership is reference counted. The pool frees itself when the last 
+ * reference is released.
  */
 typedef struct InternPool {
-    AtomStorage     storage; /**< Contiguous backing store for string bytes. */
-    InternHashTable table;   /**< Hash table for deduplication lookups. */
+    Arena           arena;      /**< Backing memory for strings and table. */
+    InternHashTable table;      /**< Hash table for content-to-id lookup. */
+    uint32_t       *live_mask;  /**< Liveness bitmask, one bit per AtomId. */
+    uint32_t        ref_count;  /**< Number of active references. */
+    uint32_t        generation; /**< Current parse generation counter. */
+    uint32_t        max_gen;    /**< Generations before eligible to evict. */
 } InternPool;
