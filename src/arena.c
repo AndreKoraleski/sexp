@@ -9,72 +9,96 @@
     (((n) + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1))
 
 Arena arena_init(size_t cap) {
-    if (cap == 0) cap = ARENA_DEFAULT_CAP;
     Arena arena = {0};
-    arena.base = malloc(cap);
-    if (!arena.base) {
-        return arena; /* zeroed struct indicates failure */
-    }
+
+    if (cap == 0) 
+        cap = ARENA_DEFAULT_CAP;
+
     arena.cap = cap;
+    arena.base = malloc(cap);
+
+    if (arena.base == NULL) 
+        arena.cap = 0;
+
     return arena;
 }
 
 void *arena_alloc(Arena *arena, size_t size) {
     size_t aligned = ALIGN_UP(size);
+
+    /* Grow arena if necessary */
     if (arena->pos + aligned > arena->cap) {
         size_t new_cap = arena->cap << 1;
-        if (new_cap < aligned) {
+
+        if (new_cap < aligned) 
             new_cap = aligned;
-        }
+
         Arena *chunk = malloc(sizeof(Arena));
-        if (!chunk) {
+        if (chunk == NULL) 
             return NULL;
-        }
-        *chunk       = *arena;
+
         uint8_t *new_base = malloc(new_cap);
-        if (!new_base) {
+        if (new_base == NULL) {
             free(chunk);
             return NULL;
         }
+
+        *chunk = *arena;
+
         arena->base = new_base;
         arena->cap  = new_cap;
         arena->pos  = 0;
         arena->prev = chunk;
     }
-    void *ptr    = arena->base + arena->pos;
-    arena->pos  += aligned;
+
+    void *ptr = arena->base + arena->pos;
+    arena->pos += aligned;
+
     return ptr;
 }
+
 void arena_reset(Arena *arena) {
     /* Walk to the oldest chunk (prev == NULL), freeing everything newer. */
     Arena *chunk = arena->prev;
-    while (chunk) {
+
+    if (chunk == NULL) {
+        arena->pos = 0;
+        return;
+    }
+
+    while (chunk->prev != NULL) {
         Arena *prev = chunk->prev;
-        if (!prev) {
-            /* This is the first chunk; restore arena to it and stop. */
-            arena->base = chunk->base;
-            arena->cap  = chunk->cap;
-            arena->pos  = 0;
-            arena->prev = NULL;
-            free(chunk);
-            return;
-        }
+
         free(chunk->base);
         free(chunk);
+
         chunk = prev;
     }
-    arena->pos = 0;
+
+    /* chunk now points to the oldest one */
+    free(arena->base);
+    arena->base = chunk->base;
+    arena->cap  = chunk->cap;
+    arena->pos  = 0;
+    arena->prev = NULL;
+
+    free(chunk);
 }
 
 void arena_free(Arena *arena) {
-    /* Free all previous chunks and their backing buffers. */
+    /* Free chained chunks */
     Arena *chunk = arena->prev;
-    while (chunk) {
+
+    while (chunk != NULL) {
         Arena *prev = chunk->prev;
+
         free(chunk->base);
         free(chunk);
+
         chunk = prev;
     }
+
     free(arena->base);
+
     *arena = (Arena){0};
 }

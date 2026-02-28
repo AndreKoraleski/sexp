@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include "arena.h"
 
-#define INTERN_DEFAULT_MAX_GEN 1 /* Retain atoms for 1 generation. */
-
 /**
  * Identifier for an interned string.
  *
@@ -36,27 +34,21 @@ typedef struct InternHashTable {
  * backed by an Arena. Duplicate strings across all parses share the same 
  * AtomId.
  *
- * Uses generational eviction to bound memory growth. Atoms unseen for max_gen 
- * parses are candidates for compaction. A bitmask tracks liveness per 
- * generation in O(n/64) time.
- *
  * Ownership is reference counted. The pool frees itself when the last 
  * reference is released.
  */
 typedef struct InternPool {
-    Arena           arena;      /**< Backing memory for strings and table. */
-    InternHashTable table;      /**< Hash table for content-to-id lookup. */
-    uint32_t       *live_mask;  /**< Liveness bitmask, one bit per AtomId. */
-    uint32_t        ref_count;  /**< Number of active references. */
-    uint32_t        generation; /**< Current parse generation counter. */
-    uint32_t        max_gen;    /**< Generations before eligible to evict. */
+    Arena           arena;       /**< Backing memory for strings and table. */
+    InternHashTable table;       /**< Hash table for content-to-id lookup. */
+    char          **strings;     /**< strings[id-1] points to the interned string for that id. */
+    uint32_t        strings_cap; /**< Allocated capacity of the strings array. */
+    uint32_t        ref_count;   /**< Number of active references. */
 } InternPool;
 
 /**
  * Initialises the global intern pool.
  *
- * Must be called once before any parsing. Uses INTERN_DEFAULT_MAX_GEN as the 
- * initial generation limit.
+ * Must be called once before any parsing.
  *
  * @return Zero on success, non-zero on failure.
  */
@@ -77,7 +69,7 @@ AtomId intern_string(const char *str, size_t len);
 /**
  * Looks up the string content for a given AtomId.
  *
- * The returned pointer is valid until the next compaction.
+ * The returned pointer is valid for the lifetime of the pool.
  *
  * @param id    AtomId to look up.
  * @param len   Output parameter for string length in bytes.
@@ -95,32 +87,6 @@ const char *intern_lookup(AtomId id, size_t *len);
  * @return   Non-zero if equal, zero if not.
  */
 int intern_equal(AtomId a, AtomId b);
-
-/**
- * Advances the generation counter of the global pool.
- *
- * Should be called once after each completed parse to mark which atoms were 
- * seen in the current generation.
- */
-void intern_advance_generation(void);
-
-/**
- * Compacts the pool, evicting atoms unseen for max_gen generations.
- *
- * Rebuilds the hash table and string storage keeping only live atoms. All 
- * AtomIds for evicted atoms are invalidated after this call.
- */
-void intern_compact(void);
-
-/**
- * Sets the maximum number of generations before an atom is eviction eligible.
- *
- * Default is INTERN_DEFAULT_MAX_GEN. Higher values trade memory for more cache
- * hits across parses with stable vocabularies.
- *
- * @param n  Number of generations to retain.
- */
-void intern_set_max_generations(uint32_t n);
 
 /**
  * Retains a reference to the global pool.
