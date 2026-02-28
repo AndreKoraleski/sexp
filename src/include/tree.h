@@ -127,7 +127,19 @@ AtomId sexp_atom(const SExp *tree, uint32_t idx);
 void sexp_set_atom(SExp *tree, uint32_t idx, const char *str, size_t len);
 
 /**
- * Inserts a node as a child of a list node after a given sibling.
+ * Allocates a new unattached node within the tree.
+ *
+ * The node is appended to the internal node array but has no parent, children,
+ * or siblings. Use sexp_set_atom to set its content, then sexp_insert to 
+ * attach it to the tree.
+ *
+ * @param tree  Pointer to the tree.
+ * @param kind  NODE_ATOM or NODE_LIST.
+ * @return      Index for a new node, or SEXP_NULL_INDEX on allocation failure.
+ */
+uint32_t sexp_node_alloc(SExp *tree, NodeKind kind);
+
+/**
  *
  * If after is SEXP_NULL_INDEX the node is inserted as the first child. All 
  * parent and sibling links are updated automatically.

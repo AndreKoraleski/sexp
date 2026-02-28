@@ -136,17 +136,22 @@ static void test_set_atom_noop_on_list(void) {
 
 static void test_insert_as_first_child(void) {
     SExp tree = sexp_parse("(a)", 3);
+    TEST_ASSERT_EQUAL_UINT(2, tree.count);
     uint32_t old_child = sexp_first_child(&tree, 0);
 
-    AtomId id = intern_string("z", 1);
-    SExp tmp = sexp_parse("z", 1);
-    uint32_t new_node = 0;
+    uint32_t z = sexp_node_alloc(&tree, NODE_ATOM);
+    TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, z);
+    sexp_set_atom(&tree, z, "z", 1);
+    sexp_insert(&tree, 0, SEXP_NULL_INDEX, z);
 
-    (void)id;
-    (void)old_child;
-    (void)new_node;
+    TEST_ASSERT_EQUAL_UINT(3, tree.count);
+    TEST_ASSERT_EQUAL_UINT(z, sexp_first_child(&tree, 0));
+    TEST_ASSERT_EQUAL_UINT(old_child, sexp_next_sibling(&tree, z));
+    TEST_ASSERT_EQUAL_UINT(0, sexp_parent(&tree, z));
 
-    sexp_free(&tmp);
+    size_t len = 0;
+    const char *str = intern_lookup(sexp_atom(&tree, z), &len);
+    TEST_ASSERT_EQUAL_STRING("z", str);
     sexp_free(&tree);
 }
 
@@ -155,7 +160,6 @@ static void test_remove_middle_child(void) {
     uint32_t root = 0;
     uint32_t a    = sexp_first_child(&tree, root);
     uint32_t b    = sexp_next_sibling(&tree, a);
-    uint32_t c    = sexp_next_sibling(&tree, b);
 
     sexp_remove(&tree, b);
 
@@ -249,6 +253,7 @@ void run_tree_tests(void) {
     RUN_TEST(test_accessor_atom_on_list);
     RUN_TEST(test_set_atom);
     RUN_TEST(test_set_atom_noop_on_list);
+    RUN_TEST(test_insert_as_first_child);
     RUN_TEST(test_remove_middle_child);
     RUN_TEST(test_remove_last_node);
     RUN_TEST(test_serialize_single_atom);

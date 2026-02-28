@@ -179,6 +179,11 @@ int intern_init(void) {
     if (global_pool.table.hashes == NULL || global_pool.table.ids == NULL)
         return -1;
 
+    for (uint32_t i = 0; i < initial_cap; i++) {
+        global_pool.table.hashes[i] = 0;
+        global_pool.table.ids[i]    = 0;
+    }
+
     global_pool.table.count = 0;
     global_pool.table.cap = initial_cap;
     global_pool.strings     = NULL;

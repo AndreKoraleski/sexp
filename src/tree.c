@@ -360,6 +360,13 @@ void sexp_set_atom(SExp *tree, uint32_t idx, const char *str, size_t len) {
         tree->nodes[idx].atom_id = id;
 }
 
+uint32_t sexp_node_alloc(SExp *tree, NodeKind kind) {
+    uint32_t idx = node_alloc(tree);
+    if (idx != SEXP_NULL_INDEX)
+        tree->nodes[idx].type = kind;
+    return idx;
+}
+
 void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t child) {
     tree->nodes[child].parent = parent;
 
