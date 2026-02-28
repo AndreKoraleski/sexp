@@ -10,23 +10,26 @@
 #define SERIALIZE_STACK_FACTOR   2
 #define SCRATCH_ARENA_FACTOR     4
 
+/** Token categories produced by the tokenizer. */
 typedef enum TokenKind {
-    TOKEN_LPAREN,
-    TOKEN_RPAREN,
-    TOKEN_ATOM,
-    TOKEN_END,
-    TOKEN_ERROR
+    TOKEN_LPAREN, /**< Opening parenthesis. */
+    TOKEN_RPAREN, /**< Closing parenthesis. */
+    TOKEN_ATOM,   /**< Bare atom (identifier). */
+    TOKEN_END,    /**< End of input. */
+    TOKEN_ERROR   /**< Unrecognised character. */
 } TokenKind;
 
+/** A single token with its kind, source pointer, and byte length. */
 typedef struct Token {
-    TokenKind   kind;
-    const char *str;
-    size_t      len;
+    TokenKind   kind; /**< Category of the token. */
+    const char *str;  /**< Pointer into the source string; NULL for non-atom tokens. */
+    size_t      len;  /**< Byte length of the token text. */
 } Token;
 
+/** Cursor state for the hand-written tokenizer. */
 typedef struct Tokenizer {
-    const char *cursor;
-    const char *end;
+    const char *cursor; /**< Current read position. */
+    const char *end;    /**< One past the last byte of input. */
 } Tokenizer;
 
 static int is_whitespace(char c) {
@@ -66,11 +69,12 @@ static Token next_token(Tokenizer *tz) {
     return (Token){ TOKEN_ERROR, NULL, 0 };
 }
 
+/** Dynamic stack of node indices used during parsing. */
 typedef struct ParseStack {
-    uint32_t *data;
-    uint32_t  top;
-    uint32_t  cap;
-    Arena    *arena;
+    uint32_t *data;  /**< Heap-backed array of node indices. */
+    uint32_t  top;   /**< Number of elements currently on the stack. */
+    uint32_t  cap;   /**< Allocated capacity in elements. */
+    Arena    *arena; /**< Arena used for growth allocations. */
 } ParseStack;
 
 static int stack_push(ParseStack *stack, uint32_t idx) {
@@ -145,10 +149,11 @@ static void node_append_child(SExp *tree, uint32_t parent, uint32_t child) {
     tree->nodes[sibling].next_sibling = child;
 }
 
+/** Work item pushed onto the serialization stack. */
 typedef struct SerializeFrame {
-    uint32_t idx;
-    uint8_t  needs_close;
-    uint8_t  needs_space;
+    uint32_t idx;         /**< Index of the node to emit. */
+    uint8_t  needs_close; /**< Non-zero if a ')' should be emitted instead of the node. */
+    uint8_t  needs_space; /**< Non-zero if a space should be emitted before the node. */
 } SerializeFrame;
 
 static size_t measure_node(const SExp *tree, uint32_t root, Arena *scratch) {
