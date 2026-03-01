@@ -93,6 +93,26 @@ static void test_intern_stress_growth(void) {
 #undef STRESS_N
 }
 
+static void test_intern_strings_doubling(void) {
+#define DOUBLING_N 600
+    char buf[24];
+    AtomId ids[DOUBLING_N];
+
+    for (int i = 0; i < DOUBLING_N; i++) {
+        int len = snprintf(buf, sizeof(buf), "dbl%d", i);
+        ids[i] = intern_string(buf, (size_t)len);
+        TEST_ASSERT_NOT_EQUAL_MESSAGE(0, ids[i], "intern_string returned 0");
+    }
+
+    for (int i = 0; i < DOUBLING_N; i++) {
+        int len = snprintf(buf, sizeof(buf), "dbl%d", i);
+        AtomId id2 = intern_string(buf, (size_t)len);
+        TEST_ASSERT_EQUAL_UINT32(ids[i], id2);
+    }
+#undef DOUBLING_N
+}
+
+
 static void test_intern_refcount_pool_freed(void) {
     AtomId id = intern_string("x", 1);
     TEST_ASSERT_NOT_EQUAL(0, id);
@@ -112,6 +132,7 @@ void run_intern_tests(void) {
     RUN_TEST(test_intern_lookup_invalid_zero);
     RUN_TEST(test_intern_lookup_out_of_bounds);
     RUN_TEST(test_intern_table_growth);
+    RUN_TEST(test_intern_strings_doubling);
     RUN_TEST(test_intern_refcount_pool_freed);
     RUN_TEST(test_intern_stress_growth);
 }

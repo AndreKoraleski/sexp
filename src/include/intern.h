@@ -31,9 +31,14 @@ typedef struct InternHashTable {
 /**
  * Global string interning pool.
  *
- * Maps string content to stable AtomIds using an open-addressed hash table
- * backed by an Arena. Duplicate strings across all parses share the same
- * AtomId.
+ * Maps string content to stable AtomIds using an open-addressed hash table.
+ * Duplicate strings across all parses share the same AtomId.
+ *
+ * Memory layout:
+ *   - String content is arena-allocated (bump, never freed individually).
+ *   - Hash table arrays (hashes, ids) and string index arrays (strings,
+ *     string_lens) are malloc/realloc managed so old copies are freed on
+ *     each doubling, avoiding arena bloat and mmap-induced latency spikes.
  *
  * Ownership is reference counted. The pool frees itself when the last
  * reference is released.
@@ -41,12 +46,13 @@ typedef struct InternHashTable {
  * All public intern_* functions are thread-safe.
  */
 typedef struct InternPool {
-    Arena           arena;       /**< Backing memory for strings and table. */
-    InternHashTable table;       /**< Hash table for content-to-id lookup. */
-    char          **strings;     /**< strings[id-1] points to the
-                                  *   interned string for that id. */
-    size_t         *string_lens; /**< string_lens[id-1] is the byte
-                                  *   length of that string. */
+    Arena           arena;       /**< Bump allocator for string content only. */
+    InternHashTable table;       /**< Hash table for content-to-id lookup.
+                                  *   hashes and ids are malloc-managed. */
+    char          **strings;     /**< strings[id-1] points to the interned
+                                  *   string for that id. malloc-managed. */
+    size_t         *string_lens; /**< string_lens[id-1] is the byte length
+                                  *   of that string. malloc-managed. */
     uint32_t        strings_cap; /**< Allocated capacity of the
                                   *   strings array. */
     uint32_t        ref_count;   /**< Number of active references. */

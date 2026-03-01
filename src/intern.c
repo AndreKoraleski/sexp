@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -54,16 +55,12 @@ static int table_insert(
 
 static int table_grow(void) {
     uint32_t  new_cap    = global_pool.table.cap << 1;
-    uint64_t *new_hashes = arena_alloc(
-        &global_pool.arena,
-        new_cap * sizeof(uint64_t)
-    );
-    AtomId *new_ids = arena_alloc(
-        &global_pool.arena,
-        new_cap * sizeof(AtomId)
-    );
+    uint64_t *new_hashes = malloc(new_cap * sizeof(uint64_t));
+    AtomId   *new_ids    = malloc(new_cap * sizeof(AtomId));
 
     if (new_hashes == NULL || new_ids == NULL) {
+        free(new_hashes);
+        free(new_ids);
         return -1;
     }
 
@@ -84,53 +81,43 @@ static int table_grow(void) {
         }
     }
 
+    free(global_pool.table.hashes);
+    free(global_pool.table.ids);
     global_pool.table.hashes = new_hashes;
     global_pool.table.ids    = new_ids;
     global_pool.table.cap    = new_cap;
     return 0;
 }
 
-static int strings_grow(uint32_t needed_cap) {
-    char **new_strings = (char **)arena_alloc(
-        &global_pool.arena,
-        needed_cap * sizeof(char *)
-    );
-    size_t *new_lens = arena_alloc(
-        &global_pool.arena,
-        needed_cap * sizeof(size_t)
-    );
+static int strings_grow(uint32_t new_cap) {
+    if (new_cap <= global_pool.strings_cap) {
+        return -1;
+    }
 
-    if (new_strings == NULL || new_lens == NULL) {
+    char **new_strings = realloc(
+        global_pool.strings,
+        new_cap * sizeof(char *)
+    );
+    if (new_strings == NULL) {
+        return -1;
+    }
+    global_pool.strings = new_strings;
+
+    size_t *new_lens = realloc(
+        global_pool.string_lens,
+        new_cap * sizeof(size_t)
+    );
+    if (new_lens == NULL) {
         return -1;
     }
 
     uint32_t old_cap = global_pool.strings_cap;
-    if (old_cap > 0) {
-        memcpy(
-            (void *)new_strings,
-            (const void *)global_pool.strings,
-            old_cap * sizeof(char *)
-        );
-        memcpy(
-            new_lens,
-            global_pool.string_lens,
-            old_cap * sizeof(size_t)
-        );
-    }
-    memset(
-        (void *)(new_strings + old_cap),
-        0,
-        (needed_cap - old_cap) * sizeof(char *)
-    );
-    memset(
-        new_lens + old_cap,
-        0,
-        (needed_cap - old_cap) * sizeof(size_t)
-    );
+    memset(new_strings + old_cap, 0, (new_cap - old_cap) * sizeof(char *));
+    memset(new_lens    + old_cap, 0, (new_cap - old_cap) * sizeof(size_t));
 
     global_pool.strings     = new_strings;
     global_pool.string_lens = new_lens;
-    global_pool.strings_cap = needed_cap;
+    global_pool.strings_cap = new_cap;
     return 0;
 }
 
@@ -178,6 +165,9 @@ static AtomId intern_assign_id(
             ? INTERN_TABLE_INIT_CAP
             : global_pool.strings_cap << 1;
         if (strings_grow(new_cap) != 0) {
+            return 0;
+        }
+        if (atom_id - 1 >= global_pool.strings_cap) {
             return 0;
         }
     }
@@ -229,17 +219,13 @@ int intern_init(void) {
     }
 
     uint32_t initial_cap = INTERN_TABLE_INIT_CAP;
-    global_pool.table.hashes = arena_alloc(
-        &global_pool.arena,
-        initial_cap * sizeof(uint64_t)
-    );
-    global_pool.table.ids = arena_alloc(
-        &global_pool.arena,
-        initial_cap * sizeof(AtomId)
-    );
+    global_pool.table.hashes = malloc(initial_cap * sizeof(uint64_t));
+    global_pool.table.ids    = malloc(initial_cap * sizeof(AtomId));
 
     if (global_pool.table.hashes == NULL
             || global_pool.table.ids == NULL) {
+        free(global_pool.table.hashes);
+        free(global_pool.table.ids);
         pthread_mutex_unlock(&pool_lock);
         return -1;
     }
@@ -308,6 +294,10 @@ void intern_release(void) {
     }
 
     if (global_pool.ref_count == 0) {
+        free(global_pool.table.hashes);
+        free(global_pool.table.ids);
+        free(global_pool.strings);
+        free(global_pool.string_lens);
         arena_free(&global_pool.arena);
         global_pool = (InternPool){0};
         global_pool_initialized = 0;
