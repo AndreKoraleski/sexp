@@ -35,38 +35,42 @@ typedef struct Tokenizer {
     const char *end;    /**< One past the last byte of input. */
 } Tokenizer;
 
-static int is_whitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+static int is_whitespace(char chr) {
+    return chr == ' ' || chr == '\t' || chr == '\n' || chr == '\r';
 }
 
-static int is_atom_char(char c) {
-    return !is_whitespace(c) && c != '(' && c != ')';
+static int is_atom_char(char chr) {
+    return !is_whitespace(chr) && chr != '(' && chr != ')';
 }
 
-static Token next_token(Tokenizer *tz) {
-    while (tz->cursor < tz->end && is_whitespace(*tz->cursor))
-        tz->cursor++;
+static Token next_token(Tokenizer *tkz) {
+    while (tkz->cursor < tkz->end && is_whitespace(*tkz->cursor)) {
+        tkz->cursor++;
+    }
 
-    if (tz->cursor >= tz->end)
+    if (tkz->cursor >= tkz->end) {
         return (Token){ TOKEN_END, NULL, 0 };
+    }
 
-    char c = *tz->cursor;
+    char chr = *tkz->cursor;
 
-    if (c == '(') {
-        tz->cursor++;
+    if (chr == '(') {
+        tkz->cursor++;
         return (Token){ TOKEN_LPAREN, NULL, 0 };
     }
 
-    if (c == ')') {
-        tz->cursor++;
+    if (chr == ')') {
+        tkz->cursor++;
         return (Token){ TOKEN_RPAREN, NULL, 0 };
     }
 
-    if (is_atom_char(c)) {
-        const char *start = tz->cursor;
-        while (tz->cursor < tz->end && is_atom_char(*tz->cursor))
-            tz->cursor++;
-        return (Token){ TOKEN_ATOM, start, (size_t)(tz->cursor - start) };
+    if (is_atom_char(chr)) {
+        const char *start = tkz->cursor;
+        while (tkz->cursor < tkz->end && is_atom_char(*tkz->cursor)) {
+            tkz->cursor++;
+        }
+        return (Token){ TOKEN_ATOM, start,
+            (size_t)(tkz->cursor - start) };
     }
 
     return (Token){ TOKEN_ERROR, NULL, 0 };
@@ -97,12 +101,14 @@ static int stack_push(ParseStack *stack, uint32_t node) {
 
         if (stack->heap) {
             new_data = realloc(stack->data, new_cap * sizeof(ParseFrame));
-            if (new_data == NULL)
+            if (new_data == NULL) {
                 return -1;
+            }
         } else {
             new_data = malloc(new_cap * sizeof(ParseFrame));
-            if (new_data == NULL)
+            if (new_data == NULL) {
                 return -1;
+            }
             memcpy(
                 new_data,
                 stack->inline_buf,
@@ -119,24 +125,31 @@ static int stack_push(ParseStack *stack, uint32_t node) {
 }
 
 static int stack_pop(ParseStack *stack) {
-    if (stack->top == 0)
+    if (stack->top == 0) {
         return -1;
+    }
     --stack->top;
     return 0;
 }
 
 static ParseFrame *stack_peek(ParseStack *stack) {
-    if (stack->top == 0)
+    if (stack->top == 0) {
         return NULL;
+    }
     return &stack->data[stack->top - 1];
 }
 
-static void frame_append_child(SExp *tree, ParseFrame *frame, uint32_t child) {
+static void frame_append_child(
+    SExp *tree,
+    ParseFrame *frame,
+    uint32_t child
+) {
     tree->nodes[child].parent = frame->node;
-    if (frame->last_child == SEXP_NULL_INDEX)
+    if (frame->last_child == SEXP_NULL_INDEX) {
         tree->nodes[frame->node].first_child = child;
-    else
+    } else {
         tree->nodes[frame->last_child].next_sibling = child;
+    }
     frame->last_child = child;
 }
 
@@ -146,10 +159,12 @@ static uint32_t node_alloc(SExp *tree) {
         uint32_t  new_cap   = tree->cap == 0
                             ? NODE_ARRAY_INIT_CAP
                             : tree->cap << 1;
-        Node     *new_nodes = realloc(tree->nodes, new_cap * sizeof(Node));
+        Node     *new_nodes = realloc(
+            tree->nodes, new_cap * sizeof(Node));
 
-        if (new_nodes == NULL)
+        if (new_nodes == NULL) {
             return SEXP_NULL_INDEX;
+        }
 
         tree->nodes = new_nodes;
         tree->cap   = new_cap;
@@ -176,13 +191,19 @@ typedef struct SerializeFrame {
                             the node. */
 } SerializeFrame;
 
-static size_t measure_node(const SExp *tree, uint32_t root, Arena *scratch) {
-    if (root >= tree->count)
+static size_t measure_node(
+    const SExp *tree,
+    uint32_t root,
+    Arena *scratch
+) {
+    if (root >= tree->count) {
         return 0;
+    }
 
     uint32_t *work = arena_alloc(scratch, tree->count * sizeof(uint32_t));
-    if (work == NULL)
+    if (work == NULL) {
         return 0;
+    }
 
     size_t   total = 0;
     uint32_t top   = 0;
@@ -206,8 +227,9 @@ static size_t measure_node(const SExp *tree, uint32_t root, Arena *scratch) {
             child = tree->nodes[child].next_sibling;
             n_children++;
         }
-        if (n_children > 0)
+        if (n_children > 0) {
             total += n_children - 1;
+        }
     }
 
     return total;
@@ -220,20 +242,23 @@ static void write_node(
     size_t *pos,
     Arena *scratch
 ) {
-    if (root >= tree->count)
+    if (root >= tree->count) {
         return;
+    }
 
     SerializeFrame *stack    = arena_alloc(
         scratch,
-        SERIALIZE_STACK_FACTOR * tree->count * sizeof(SerializeFrame)
+        (size_t)SERIALIZE_STACK_FACTOR * tree->count
+            * sizeof(SerializeFrame)
     );
     uint32_t       *children = arena_alloc(
         scratch,
         tree->count * sizeof(uint32_t)
     );
 
-    if (stack == NULL || children == NULL)
+    if (stack == NULL || children == NULL) {
         return;
+    }
 
     uint32_t top = 0;
     stack[top++] = (SerializeFrame){ root, 0, 0 };
@@ -246,8 +271,9 @@ static void write_node(
             continue;
         }
 
-        if (frame.needs_space)
+        if (frame.needs_space) {
             dest[(*pos)++] = ' ';
+        }
 
         uint32_t idx = frame.idx;
 
@@ -283,11 +309,47 @@ static void write_node(
 
 }
 
+static int parse_handle_lparen(SExp *tree, ParseStack *stack) {
+    uint32_t node_idx = node_alloc(tree);
+    if (node_idx == SEXP_NULL_INDEX) {
+        return -1;
+    }
+    tree->nodes[node_idx].type = NODE_LIST;
+    ParseFrame *frame = stack_peek(stack);
+    if (frame != NULL) {
+        frame_append_child(tree, frame, node_idx);
+    }
+    return stack_push(stack, node_idx);
+}
+
+static int parse_handle_atom(
+    SExp *tree,
+    ParseStack *stack,
+    Token tok
+) {
+    AtomId atom_id = intern_string(tok.str, tok.len);
+    if (atom_id == 0) {
+        return -1;
+    }
+    uint32_t node_idx = node_alloc(tree);
+    if (node_idx == SEXP_NULL_INDEX) {
+        return -1;
+    }
+    tree->nodes[node_idx].type    = NODE_ATOM;
+    tree->nodes[node_idx].atom_id = atom_id;
+    ParseFrame *frame = stack_peek(stack);
+    if (frame != NULL) {
+        frame_append_child(tree, frame, node_idx);
+    }
+    return 0;
+}
+
 SExp sexp_parse(const char *src, size_t src_len) {
     SExp tree = {0};
 
-    if (intern_init() != 0)
+    if (intern_init() != 0) {
         return tree;
+    }
 
     intern_retain();
 
@@ -295,132 +357,132 @@ SExp sexp_parse(const char *src, size_t src_len) {
     stack.data = stack.inline_buf;
     stack.cap  = PARSE_STACK_INLINE_CAP;
 
-    Tokenizer tz = { src, src + src_len };
+    Tokenizer tkz = { src, src + src_len };
     Token token;
-    while ((token = next_token(&tz)).kind != TOKEN_END) {
-        if (token.kind == TOKEN_ERROR)
+    while ((token = next_token(&tkz)).kind != TOKEN_END) {
+        int err = 0;
+
+        if (token.kind == TOKEN_ERROR) {
             goto error;
-
-        if (token.kind == TOKEN_LPAREN) {
-            uint32_t idx = node_alloc(&tree);
-            if (idx == SEXP_NULL_INDEX)
-                goto error;
-
-            tree.nodes[idx].type = NODE_LIST;
-
-            ParseFrame *top = stack_peek(&stack);
-            if (top != NULL)
-                frame_append_child(&tree, top, idx);
-
-            if (stack_push(&stack, idx) != 0)
-                goto error;
-            continue;
+        } else if (token.kind == TOKEN_LPAREN) {
+            err = parse_handle_lparen(&tree, &stack);
+        } else if (token.kind == TOKEN_RPAREN) {
+            err = stack_pop(&stack);
+        } else if (token.kind == TOKEN_ATOM) {
+            err = parse_handle_atom(&tree, &stack, token);
         }
 
-        if (token.kind == TOKEN_RPAREN) {
-            if (stack_pop(&stack) != 0)
-                goto error;
-            continue;
-        }
-
-        if (token.kind == TOKEN_ATOM) {
-            AtomId id = intern_string(token.str, token.len);
-            if (id == 0)
-                goto error;
-
-            uint32_t idx = node_alloc(&tree);
-            if (idx == SEXP_NULL_INDEX)
-                goto error;
-
-            tree.nodes[idx].type    = NODE_ATOM;
-            tree.nodes[idx].atom_id = id;
-
-            ParseFrame *top = stack_peek(&stack);
-            if (top != NULL)
-                frame_append_child(&tree, top, idx);
-            continue;
+        if (err != 0) {
+            goto error;
         }
     }
 
-    if (stack.top > 0)
+    if (stack.top > 0) {
         goto error;
+    }
 
-    if (stack.heap)
+    if (stack.heap) {
         free(stack.data);
+    }
     tree.valid = 1;
     return tree;
 
 error:
     free(tree.nodes);
-    if (stack.heap)
+    if (stack.heap) {
         free(stack.data);
+    }
     intern_release();
     return (SExp){0};
 }
 
 void sexp_free(SExp *tree) {
-    if (tree == NULL || !tree->valid)
+    if (tree == NULL || !tree->valid) {
         return;
+    }
     free(tree->nodes);
     intern_release();
     *tree = (SExp){0};
 }
 
 uint32_t sexp_first_child(const SExp *tree, uint32_t idx) {
-    if (idx >= tree->count)
+    if (idx >= tree->count) {
         return SEXP_NULL_INDEX;
+    }
     return tree->nodes[idx].first_child;
 }
 
 uint32_t sexp_next_sibling(const SExp *tree, uint32_t idx) {
-    if (idx >= tree->count)
+    if (idx >= tree->count) {
         return SEXP_NULL_INDEX;
+    }
     return tree->nodes[idx].next_sibling;
 }
 
 uint32_t sexp_parent(const SExp *tree, uint32_t idx) {
-    if (idx >= tree->count)
+    if (idx >= tree->count) {
         return SEXP_NULL_INDEX;
+    }
     return tree->nodes[idx].parent;
 }
 
 NodeKind sexp_kind(const SExp *tree, uint32_t idx) {
-    if (idx >= tree->count)
+    if (idx >= tree->count) {
         return NODE_INVALID;
+    }
     return tree->nodes[idx].type;
 }
 
 AtomId sexp_atom(const SExp *tree, uint32_t idx) {
-    if (idx >= tree->count || tree->nodes[idx].type != NODE_ATOM)
+    if (idx >= tree->count
+            || tree->nodes[idx].type != NODE_ATOM) {
         return 0;
+    }
     return tree->nodes[idx].atom_id;
 }
 
-void sexp_set_atom(SExp *tree, uint32_t idx, const char *str, size_t len) {
-    if (idx >= tree->count || tree->nodes[idx].type != NODE_ATOM)
+void sexp_set_atom(
+    SExp *tree,
+    uint32_t idx,
+    const char *str,
+    size_t len
+) {
+    if (idx >= tree->count
+            || tree->nodes[idx].type != NODE_ATOM) {
         return;
-    AtomId id = intern_string(str, len);
-    if (id != 0)
-        tree->nodes[idx].atom_id = id;
+    }
+    AtomId atom_id = intern_string(str, len);
+    if (atom_id != 0) {
+        tree->nodes[idx].atom_id = atom_id;
+    }
 }
 
 uint32_t sexp_node_alloc(SExp *tree, NodeKind kind) {
-    if (kind != NODE_ATOM && kind != NODE_LIST)
+    if (kind != NODE_ATOM && kind != NODE_LIST) {
         return SEXP_NULL_INDEX;
+    }
 
     uint32_t idx = node_alloc(tree);
-    if (idx != SEXP_NULL_INDEX)
+    if (idx != SEXP_NULL_INDEX) {
         tree->nodes[idx].type = kind;
+    }
 
     return idx;
 }
 
-void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t child) {
-    if (parent >= tree->count || child >= tree->count)
+void sexp_insert(
+    SExp *tree,
+    uint32_t parent,
+    uint32_t after,
+    uint32_t child
+) {
+    if (parent >= tree->count || child >= tree->count) {
         return;
+    }
 
-    if (after != SEXP_NULL_INDEX && after >= tree->count)
+    if (after != SEXP_NULL_INDEX && after >= tree->count) {
         return;
+    }
 
     tree->nodes[child].parent = parent;
 
@@ -433,23 +495,67 @@ void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t child) {
     }
 }
 
-void sexp_remove(SExp *tree, uint32_t idx) {
-    if (idx >= tree->count)
-        return;
+static uint32_t find_prev_sibling(
+    const SExp *tree,
+    uint32_t parent,
+    uint32_t target
+) {
+    uint32_t prev = tree->nodes[parent].first_child;
+    while (prev != SEXP_NULL_INDEX
+            && tree->nodes[prev].next_sibling != target) {
+        prev = tree->nodes[prev].next_sibling;
+    }
+    return prev;
+}
 
+static void unlink_from_parent(SExp *tree, uint32_t idx) {
     uint32_t parent = tree->nodes[idx].parent;
-    if (parent != SEXP_NULL_INDEX) {
-        if (tree->nodes[parent].first_child == idx) {
-            tree->nodes[parent].first_child = tree->nodes[idx].next_sibling;
-        } else {
-            uint32_t prev = tree->nodes[parent].first_child;
-            while (prev != SEXP_NULL_INDEX
-                    && tree->nodes[prev].next_sibling != idx)
-                prev = tree->nodes[prev].next_sibling;
-            if (prev != SEXP_NULL_INDEX)
-                tree->nodes[prev].next_sibling = tree->nodes[idx].next_sibling;
+    if (parent == SEXP_NULL_INDEX) {
+        return;
+    }
+    if (tree->nodes[parent].first_child == idx) {
+        tree->nodes[parent].first_child =
+            tree->nodes[idx].next_sibling;
+    } else {
+        uint32_t prev = find_prev_sibling(tree, parent, idx);
+        if (prev != SEXP_NULL_INDEX) {
+            tree->nodes[prev].next_sibling =
+                tree->nodes[idx].next_sibling;
         }
     }
+}
+
+static void fix_moved_node(
+    SExp *tree,
+    uint32_t new_pos,
+    uint32_t old_pos
+) {
+    uint32_t moved_parent = tree->nodes[new_pos].parent;
+    if (moved_parent != SEXP_NULL_INDEX) {
+        if (tree->nodes[moved_parent].first_child == old_pos) {
+            tree->nodes[moved_parent].first_child = new_pos;
+        } else {
+            uint32_t prev =
+                find_prev_sibling(tree, moved_parent, old_pos);
+            if (prev != SEXP_NULL_INDEX) {
+                tree->nodes[prev].next_sibling = new_pos;
+            }
+        }
+    }
+
+    uint32_t child = tree->nodes[new_pos].first_child;
+    while (child != SEXP_NULL_INDEX) {
+        tree->nodes[child].parent = new_pos;
+        child = tree->nodes[child].next_sibling;
+    }
+}
+
+void sexp_remove(SExp *tree, uint32_t idx) {
+    if (idx >= tree->count) {
+        return;
+    }
+
+    unlink_from_parent(tree, idx);
 
     uint32_t child = tree->nodes[idx].first_child;
     while (child != SEXP_NULL_INDEX) {
@@ -460,47 +566,31 @@ void sexp_remove(SExp *tree, uint32_t idx) {
     uint32_t last = tree->count - 1;
     if (idx != last) {
         tree->nodes[idx] = tree->nodes[last];
-
-        uint32_t moved_parent = tree->nodes[idx].parent;
-        if (moved_parent != SEXP_NULL_INDEX) {
-
-            if (tree->nodes[moved_parent].first_child == last) {
-                tree->nodes[moved_parent].first_child = idx;
-            } else {
-                uint32_t prev = tree->nodes[moved_parent].first_child;
-
-                while (prev != SEXP_NULL_INDEX
-                        && tree->nodes[prev].next_sibling != last)
-                    prev = tree->nodes[prev].next_sibling;
-
-                if (prev != SEXP_NULL_INDEX)
-                    tree->nodes[prev].next_sibling = idx;
-            }
-        }
-
-        child = tree->nodes[idx].first_child;
-        while (child != SEXP_NULL_INDEX) {
-            tree->nodes[child].parent = idx;
-            child = tree->nodes[child].next_sibling;
-        }
+        fix_moved_node(tree, idx, last);
     }
 
     tree->count--;
 }
 
-char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *out_len) {
+char *sexp_serialize_node(
+    const SExp *tree,
+    uint32_t idx,
+    size_t *out_len
+) {
     if (tree->count == 0 || idx >= tree->count) {
-        if (out_len != NULL)
+        if (out_len != NULL) {
             *out_len = 0;
+        }
         return NULL;
     }
 
     Arena scratch = arena_init(
-        SCRATCH_ARENA_FACTOR * tree->count * sizeof(uint32_t)
+        (size_t)SCRATCH_ARENA_FACTOR * tree->count * sizeof(uint32_t)
     );
 
-    if (scratch.base == NULL)
+    if (scratch.base == NULL) {
         return NULL;
+    }
 
     size_t needed = measure_node(tree, idx, &scratch);
     if (needed == 0) {
@@ -520,8 +610,9 @@ char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *out_len) {
     arena_free(&scratch);
     buf[pos] = '\0';
 
-    if (out_len != NULL)
+    if (out_len != NULL) {
         *out_len = pos;
+    }
 
     return buf;
 }

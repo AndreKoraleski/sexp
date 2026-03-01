@@ -11,14 +11,16 @@
 Arena arena_init(size_t cap) {
     Arena arena = {0};
 
-    if (cap == 0) 
+    if (cap == 0) {
         cap = ARENA_DEFAULT_CAP;
+    }
 
     arena.cap = cap;
     arena.base = malloc(cap);
 
-    if (arena.base == NULL) 
+    if (arena.base == NULL) {
         arena.cap = 0;
+    }
 
     return arena;
 }
@@ -29,12 +31,14 @@ void *arena_alloc(Arena *arena, size_t size) {
     if (arena->pos + aligned > arena->cap) {
         size_t new_cap = arena->cap << 1;
 
-        if (new_cap < aligned) 
+        if (new_cap < aligned) {
             new_cap = aligned;
+        }
 
         Arena *chunk = malloc(sizeof(Arena));
-        if (chunk == NULL) 
+        if (chunk == NULL) {
             return NULL;
+        }
 
         uint8_t *new_base = malloc(new_cap);
         if (new_base == NULL) {

@@ -18,36 +18,42 @@ static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint64_t hash(const void *data, size_t len) {
     const uint8_t *bytes = data;
-    uint64_t h = FNV_OFFSET_BASIS;
+    uint64_t fnv_hash = FNV_OFFSET_BASIS;
 
     for (size_t i = 0; i < len; i++) {
-        h ^= bytes[i];
-        h *= FNV_PRIME;
+        fnv_hash ^= bytes[i];
+        fnv_hash *= FNV_PRIME;
     }
 
-    if (h == 0)
-        h = 1;
+    if (fnv_hash == 0) {
+        fnv_hash = 1;
+    }
 
-    return h;
+    return fnv_hash;
 }
 
-static int table_insert(InternHashTable *table, uint64_t h, AtomId id) {
-    if (table->count >= table->cap / INTERN_TABLE_LOAD_DENOM)
+static int table_insert(
+    InternHashTable *table,
+    uint64_t fnv_hash,
+    AtomId atom_id
+) {
+    if (table->count >= table->cap / INTERN_TABLE_LOAD_DENOM) {
         return -1;
+    }
 
     uint32_t mask = table->cap - 1;
-    uint32_t slot = (uint32_t)(h & mask);
-    while (table->hashes[slot] != 0)
+    uint32_t slot = (uint32_t)(fnv_hash & mask);
+    while (table->hashes[slot] != 0) {
         slot = (slot + 1) & mask;
-    table->hashes[slot] = h;
-
-    table->ids[slot]    = id;
+    }
+    table->hashes[slot] = fnv_hash;
+    table->ids[slot]    = atom_id;
     table->count++;
     return 0;
 }
 
 static int table_grow(void) {
-    uint32_t new_cap = global_pool.table.cap << 1;
+    uint32_t  new_cap    = global_pool.table.cap << 1;
     uint64_t *new_hashes = arena_alloc(
         &global_pool.arena,
         new_cap * sizeof(uint64_t)
@@ -57,8 +63,9 @@ static int table_grow(void) {
         new_cap * sizeof(AtomId)
     );
 
-    if (new_hashes == NULL || new_ids == NULL)
+    if (new_hashes == NULL || new_ids == NULL) {
         return -1;
+    }
 
     memset(new_hashes, 0, new_cap * sizeof(uint64_t));
     memset(new_ids,    0, new_cap * sizeof(AtomId));
@@ -66,9 +73,12 @@ static int table_grow(void) {
     uint32_t mask = new_cap - 1;
     for (uint32_t i = 0; i < global_pool.table.cap; i++) {
         if (global_pool.table.hashes[i] != 0) {
-            uint32_t slot = (uint32_t)(global_pool.table.hashes[i] & mask);
-            while (new_hashes[slot] != 0)
+            uint32_t slot =
+                (uint32_t)(global_pool.table.hashes[i] & mask);
+
+                while (new_hashes[slot] != 0) {
                 slot = (slot + 1) & mask;
+            }
             new_hashes[slot] = global_pool.table.hashes[i];
             new_ids[slot]    = global_pool.table.ids[i];
         }
@@ -81,7 +91,7 @@ static int table_grow(void) {
 }
 
 static int strings_grow(uint32_t needed_cap) {
-    char **new_strings = arena_alloc(
+    char **new_strings = (char **)arena_alloc(
         &global_pool.arena,
         needed_cap * sizeof(char *)
     );
@@ -90,22 +100,33 @@ static int strings_grow(uint32_t needed_cap) {
         needed_cap * sizeof(size_t)
     );
 
-    if (new_strings == NULL || new_lens == NULL)
+    if (new_strings == NULL || new_lens == NULL) {
         return -1;
+    }
 
     uint32_t old_cap = global_pool.strings_cap;
     if (old_cap > 0) {
-        memcpy(new_strings, global_pool.strings,
-            old_cap * sizeof(char *));
-
-            memcpy(new_lens, global_pool.string_lens,
-            old_cap * sizeof(size_t));
+        memcpy(
+            (void *)new_strings,
+            (const void *)global_pool.strings,
+            old_cap * sizeof(char *)
+        );
+        memcpy(
+            new_lens,
+            global_pool.string_lens,
+            old_cap * sizeof(size_t)
+        );
     }
-    memset(new_strings + old_cap, 0,
-        (needed_cap - old_cap) * sizeof(char *));
-
-        memset(new_lens + old_cap, 0,
-        (needed_cap - old_cap) * sizeof(size_t));
+    memset(
+        (void *)(new_strings + old_cap),
+        0,
+        (needed_cap - old_cap) * sizeof(char *)
+    );
+    memset(
+        new_lens + old_cap,
+        0,
+        (needed_cap - old_cap) * sizeof(size_t)
+    );
 
     global_pool.strings     = new_strings;
     global_pool.string_lens = new_lens;
@@ -113,21 +134,23 @@ static int strings_grow(uint32_t needed_cap) {
     return 0;
 }
 
-static AtomId intern_lookup_hash(uint64_t h, const char *str, size_t len) {
+static AtomId intern_lookup_hash(
+    uint64_t fnv_hash,
+    const char *str,
+    size_t len
+) {
     uint32_t mask = global_pool.table.cap - 1;
-    uint32_t slot = (uint32_t)(h & mask);
+    uint32_t slot = (uint32_t)(fnv_hash & mask);
 
     while (global_pool.table.hashes[slot] != 0) {
-        if (global_pool.table.hashes[slot] == h) {
-            AtomId id = global_pool.table.ids[slot];
-            const char *stored = global_pool.strings[id - 1];
-            if (
-                stored != NULL
-                && memcmp(stored, str, len) == 0
-
-                && stored[len] == '\0'
-            )
-                return id;
+        if (global_pool.table.hashes[slot] == fnv_hash) {
+            AtomId atom_id  = global_pool.table.ids[slot];
+            const char *stored = global_pool.strings[atom_id - 1];
+            if (stored != NULL
+                    && memcmp(stored, str, len) == 0
+                    && stored[len] == '\0') {
+                return atom_id;
+            }
         }
         slot = (slot + 1) & mask;
     }
@@ -135,49 +158,57 @@ static AtomId intern_lookup_hash(uint64_t h, const char *str, size_t len) {
     return 0;
 }
 
-static AtomId intern_assign_id(const char *str, size_t len, uint64_t h) {
+static AtomId intern_assign_id(
+    const char *str,
+    size_t len,
+    uint64_t fnv_hash
+) {
     char *dest = arena_alloc(&global_pool.arena, len + 1);
-    if (dest == NULL)
+    if (dest == NULL) {
         return 0;
+    }
 
     memcpy(dest, str, len);
     dest[len] = '\0';
 
-    AtomId id = (AtomId)(global_pool.table.count + 1);
+    AtomId atom_id = (AtomId)(global_pool.table.count + 1);
 
-    if (id > global_pool.strings_cap) {
+    if (atom_id > global_pool.strings_cap) {
         uint32_t new_cap = global_pool.strings_cap == 0
             ? INTERN_TABLE_INIT_CAP
             : global_pool.strings_cap << 1;
-        if (strings_grow(new_cap) != 0)
+        if (strings_grow(new_cap) != 0) {
             return 0;
+        }
     }
 
-    if (table_insert(&global_pool.table, h, id) != 0)
+    if (table_insert(&global_pool.table, fnv_hash, atom_id) != 0) {
         return 0;
+    }
 
-    global_pool.strings[id - 1]     = dest;
-    global_pool.string_lens[id - 1] = len;
-    return id;
+    global_pool.strings[atom_id - 1]     = dest;
+    global_pool.string_lens[atom_id - 1] = len;
+    return atom_id;
 }
 
-const char *intern_lookup(AtomId id, size_t *len) {
+const char *intern_lookup(AtomId atom_id, size_t *len) {
     pthread_mutex_lock(&pool_lock);
     if (!global_pool_initialized
-            || id == 0
-            || id > global_pool.strings_cap) {
+            || atom_id == 0
+            || atom_id > global_pool.strings_cap) {
         pthread_mutex_unlock(&pool_lock);
         return NULL;
     }
 
-    const char *str = global_pool.strings[id - 1];
+    const char *str = global_pool.strings[atom_id - 1];
     if (str == NULL) {
         pthread_mutex_unlock(&pool_lock);
         return NULL;
     }
 
-    if (len != NULL)
-        *len = global_pool.string_lens[id - 1];
+    if (len != NULL) {
+        *len = global_pool.string_lens[atom_id - 1];
+    }
 
     pthread_mutex_unlock(&pool_lock);
     return str;
@@ -192,8 +223,10 @@ int intern_init(void) {
 
     global_pool.arena = arena_init(ARENA_DEFAULT_CAP);
 
-    if (global_pool.arena.base == NULL)
+    if (global_pool.arena.base == NULL) {
+        pthread_mutex_unlock(&pool_lock);
         return -1;
+    }
 
     uint32_t initial_cap = INTERN_TABLE_INIT_CAP;
     global_pool.table.hashes = arena_alloc(
@@ -205,8 +238,11 @@ int intern_init(void) {
         initial_cap * sizeof(AtomId)
     );
 
-    if (global_pool.table.hashes == NULL || global_pool.table.ids == NULL)
+    if (global_pool.table.hashes == NULL
+            || global_pool.table.ids == NULL) {
+        pthread_mutex_unlock(&pool_lock);
         return -1;
+    }
 
     memset(global_pool.table.hashes, 0,
         initial_cap * sizeof(uint64_t));
@@ -214,7 +250,7 @@ int intern_init(void) {
         initial_cap * sizeof(AtomId));
 
     global_pool.table.count = 0;
-    global_pool.table.cap = initial_cap;
+    global_pool.table.cap   = initial_cap;
     global_pool.strings     = NULL;
     global_pool.string_lens = NULL;
     global_pool.strings_cap = 0;
@@ -231,30 +267,32 @@ AtomId intern_string(const char *str, size_t len) {
         return 0;
     }
 
-    uint64_t h = hash(str, len);
+    uint64_t fnv_hash = hash(str, len);
 
-    AtomId id = intern_lookup_hash(h, str, len);
-    if (id != 0) {
+    AtomId atom_id = intern_lookup_hash(fnv_hash, str, len);
+    if (atom_id != 0) {
         pthread_mutex_unlock(&pool_lock);
-        return id;
+        return atom_id;
     }
 
     if (global_pool.table.count >=
-            global_pool.table.cap / INTERN_TABLE_LOAD_DENOM)
+            global_pool.table.cap / INTERN_TABLE_LOAD_DENOM) {
         if (table_grow() != 0) {
             pthread_mutex_unlock(&pool_lock);
             return 0;
         }
+    }
 
-    id = intern_assign_id(str, len, h);
+    atom_id = intern_assign_id(str, len, fnv_hash);
     pthread_mutex_unlock(&pool_lock);
-    return id;
+    return atom_id;
 }
 
 void intern_retain(void) {
     pthread_mutex_lock(&pool_lock);
-    if (global_pool_initialized)
+    if (global_pool_initialized) {
         global_pool.ref_count++;
+    }
     pthread_mutex_unlock(&pool_lock);
 }
 
@@ -265,8 +303,9 @@ void intern_release(void) {
         return;
     }
 
-    if (global_pool.ref_count > 0)
+    if (global_pool.ref_count > 0) {
         global_pool.ref_count--;
+    }
 
     if (global_pool.ref_count == 0) {
         arena_free(&global_pool.arena);

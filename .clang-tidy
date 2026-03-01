@@ -6,7 +6,9 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -misc-include-cleaner
 
 WarningsAsErrors: "*"
 

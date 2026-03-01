@@ -78,11 +78,11 @@ AtomId intern_string(const char *str, size_t len);
  *
  * The returned pointer is valid for the lifetime of the pool.
  *
- * @param id    AtomId to look up.
- * @param len   Output parameter for string length in bytes.
- * @return      Pointer to the interned string bytes, or NULL if invalid.
+ * @param atom_id  AtomId to look up.
+ * @param len      Output parameter for string length in bytes.
+ * @return         Pointer to the interned string bytes, or NULL if invalid.
  */
-const char *intern_lookup(AtomId id, size_t *len);
+const char *intern_lookup(AtomId atom_id, size_t *len);
 
 /**
  * Retains a reference to the global pool.
