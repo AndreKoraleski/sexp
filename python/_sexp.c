@@ -187,77 +187,6 @@ subscript_at(SExpObject *owner, const SExp *tree, uint32_t root, PyObject *key)
 }
 
 /* ════════════════════════════════════════════════════════════════
-   __repr__ helper
-   ════════════════════════════════════════════════════════════════ */
-
-static int
-repr_build(const SExp *tree, uint32_t idx, PyObject *list)
-{
-    if (sexp_kind(tree, idx) == NODE_ATOM) {
-        size_t len  = 0;
-        AtomId id   = sexp_atom(tree, idx);
-        const char *s = intern_lookup(id, &len);
-        PyObject *part = s
-            ? PyUnicode_FromStringAndSize(s, (Py_ssize_t)len)
-            : PyUnicode_FromString("?");
-        if (!part)
-            return -1;
-        int rc = PyList_Append(list, part);
-        Py_DECREF(part);
-        return rc;
-    }
-
-    PyObject *lparen = PyUnicode_FromString("(");
-    if (!lparen || PyList_Append(list, lparen) < 0) {
-        Py_XDECREF(lparen);
-        return -1;
-    }
-    Py_DECREF(lparen);
-
-    int first_child = 1;
-    uint32_t c = sexp_first_child(tree, idx);
-    while (c != SEXP_NULL_INDEX) {
-        if (!first_child) {
-            PyObject *sp = PyUnicode_FromString(" ");
-            if (!sp || PyList_Append(list, sp) < 0) {
-                Py_XDECREF(sp);
-                return -1;
-            }
-            Py_DECREF(sp);
-        }
-        first_child = 0;
-        if (repr_build(tree, c, list) < 0)
-            return -1;
-        c = sexp_next_sibling(tree, c);
-    }
-
-    PyObject *rparen = PyUnicode_FromString(")");
-    if (!rparen || PyList_Append(list, rparen) < 0) {
-        Py_XDECREF(rparen);
-        return -1;
-    }
-    Py_DECREF(rparen);
-    return 0;
-}
-
-static PyObject *
-repr_from_idx(const SExp *tree, uint32_t idx)
-{
-    PyObject *parts = PyList_New(0);
-    if (!parts)
-        return NULL;
-    if (repr_build(tree, idx, parts) < 0) {
-        Py_DECREF(parts);
-        return NULL;
-    }
-    PyObject *empty  = PyUnicode_FromString("");
-    PyObject *result = empty ? PyUnicode_Join(empty, parts) : NULL;
-    Py_XDECREF(empty);
-    Py_DECREF(parts);
-    return result;
-}
-
-/* ════════════════════════════════════════════════════════════════
    SExpNodeType
    ════════════════════════════════════════════════════════════════ */
 
@@ -271,15 +200,11 @@ sexpnode_dealloc(SExpNodeObject *self)
 static PyObject *
 sexpnode_repr(SExpNodeObject *self)
 {
-    SExp *tree = &self->owner->tree;
-    if (sexp_kind(tree, self->idx) == NODE_ATOM) {
-        size_t len = 0;
-        const char *str = intern_lookup(sexp_atom(tree, self->idx), &len);
-        if (str == NULL)
-            return PyUnicode_FromString("");
-        return PyUnicode_FromStringAndSize(str, (Py_ssize_t)len);
-    }
-    return repr_from_idx(tree, self->idx);
+    size_t len = 0;
+    const char *s = sexp_serialize_node(&self->owner->tree, self->idx, &len);
+    if (s == NULL)
+        return PyUnicode_FromString("");
+    return PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
 }
 
 static Py_ssize_t
@@ -354,13 +279,90 @@ sexpnode_value_set(SExpNodeObject *self, PyObject *val,
     return 0;
 }
 
+static PyObject *
+sexpnode_parent_get(SExpNodeObject *self, void *Py_UNUSED(closure))
+{
+    uint32_t parent_idx = sexp_parent(&self->owner->tree, self->idx);
+    if (parent_idx == SEXP_NULL_INDEX)
+        Py_RETURN_NONE;
+    return (PyObject *)node_from_idx(self->owner, parent_idx);
+}
+
+static PyObject *
+sexpnode_is_atom_get(SExpNodeObject *self, void *Py_UNUSED(closure))
+{
+    return PyBool_FromLong(
+        sexp_kind(&self->owner->tree, self->idx) == NODE_ATOM
+    );
+}
+
+static PyObject *
+sexpnode_remove(SExpNodeObject *self, PyObject *Py_UNUSED(args))
+{
+    sexp_remove(&self->owner->tree, self->idx);
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+sexpnode_prepend(SExpNodeObject *self, PyObject *arg)
+{
+    if (!PyObject_TypeCheck(arg, &SExpNodeType)) {
+        PyErr_SetString(PyExc_TypeError, "argument must be a SExpNode");
+        return NULL;
+    }
+    SExpNodeObject *child = (SExpNodeObject *)arg;
+    if (child->owner != self->owner) {
+        PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
+        return NULL;
+    }
+    sexp_insert(&self->owner->tree, self->idx, SEXP_NULL_INDEX, child->idx);
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+sexpnode_append(SExpNodeObject *self, PyObject *arg)
+{
+    if (!PyObject_TypeCheck(arg, &SExpNodeType)) {
+        PyErr_SetString(PyExc_TypeError, "argument must be a SExpNode");
+        return NULL;
+    }
+    SExpNodeObject *child = (SExpNodeObject *)arg;
+    if (child->owner != self->owner) {
+        PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
+        return NULL;
+    }
+    SExp *tree = &self->owner->tree;
+    uint32_t after = SEXP_NULL_INDEX;
+    uint32_t c = sexp_first_child(tree, self->idx);
+    while (c != SEXP_NULL_INDEX) {
+        after = c;
+        c = sexp_next_sibling(tree, c);
+    }
+    sexp_insert(tree, self->idx, after, child->idx);
+    Py_RETURN_NONE;
+}
+
 static PyGetSetDef sexpnode_getset[] = {
-    { "head",  (getter)sexpnode_head,  NULL,
+    { "head",    (getter)sexpnode_head,        NULL,
       "First child node.", NULL },
-    { "tail",  (getter)sexpnode_tail,  NULL,
+    { "tail",    (getter)sexpnode_tail,        NULL,
       "Iterator over children after the first.", NULL },
-    { "value", (getter)sexpnode_value_get, (setter)sexpnode_value_set,
+    { "value",   (getter)sexpnode_value_get,   (setter)sexpnode_value_set,
       "String value of an atom node.", NULL },
+    { "parent",  (getter)sexpnode_parent_get,  NULL,
+      "Parent node, or None if this is the root.", NULL },
+    { "is_atom", (getter)sexpnode_is_atom_get, NULL,
+      "True if this is an atom node, False if it is a list.", NULL },
+    { NULL }
+};
+
+static PyMethodDef sexpnode_methods[] = {
+    { "remove",  (PyCFunction)sexpnode_remove,  METH_NOARGS,
+      "remove() -> None\n\nDetach and remove this node from the tree." },
+    { "append",  (PyCFunction)sexpnode_append,  METH_O,
+      "append(child) -> None\n\nAppend child as the last child of this list node." },
+    { "prepend", (PyCFunction)sexpnode_prepend, METH_O,
+      "prepend(child) -> None\n\nInsert child as the first child of this list node." },
     { NULL }
 };
 
@@ -398,6 +400,7 @@ static PyTypeObject SExpNodeType = {
     .tp_as_mapping = &sexpnode_mapping,
     .tp_iter       = (getiterfunc)sexpnode_iter,
     .tp_getset     = sexpnode_getset,
+    .tp_methods    = sexpnode_methods,
     .tp_flags      = Py_TPFLAGS_DEFAULT,
     .tp_doc        = "Non-owning view of a node within an S-expression tree.",
 };
@@ -417,8 +420,12 @@ static PyObject *
 sexp_repr(SExpObject *self)
 {
     if (self->tree.count == 0)
-        return PyUnicode_FromString("()");
-    return repr_from_idx(&self->tree, 0);
+        return PyUnicode_FromString("");
+    size_t len = 0;
+    const char *s = sexp_serialize(&self->tree, &len);
+    if (s == NULL)
+        return PyUnicode_FromString("");
+    return PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
 }
 
 static Py_ssize_t
@@ -475,11 +482,46 @@ sexp_tail(SExpObject *self, void *Py_UNUSED(ignored))
     return make_iter(&SExpTailIterType, self, start);
 }
 
+static PyObject *
+sexp_new_atom(SExpObject *self, PyObject *arg)
+{
+    Py_ssize_t len = 0;
+    const char *str = PyUnicode_AsUTF8AndSize(arg, &len);
+    if (!str)
+        return NULL;
+    uint32_t idx = sexp_node_alloc(&self->tree, NODE_ATOM);
+    if (idx == SEXP_NULL_INDEX) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    sexp_set_atom(&self->tree, idx, str, (size_t)len);
+    return (PyObject *)node_from_idx(self, idx);
+}
+
+static PyObject *
+sexp_new_list(SExpObject *self, PyObject *Py_UNUSED(args))
+{
+    uint32_t idx = sexp_node_alloc(&self->tree, NODE_LIST);
+    if (idx == SEXP_NULL_INDEX) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    return (PyObject *)node_from_idx(self, idx);
+}
+
 static PyGetSetDef sexp_getset[] = {
     { "head", (getter)sexp_head, NULL,
       "First child node, or raises IndexError if empty.", NULL },
     { "tail", (getter)sexp_tail, NULL,
       "Iterator over children[1:].", NULL },
+    { NULL }
+};
+
+static PyMethodDef sexp_methods[] = {
+    { "new_atom", (PyCFunction)sexp_new_atom, METH_O,
+      "new_atom(value) -> SExpNode\n\nAllocate a new unattached atom node." },
+    { "new_list", (PyCFunction)sexp_new_list, METH_NOARGS,
+      "new_list() -> SExpNode\n\nAllocate a new unattached list node." },
     { NULL }
 };
 
@@ -499,6 +541,7 @@ static PyTypeObject SExpType = {
     .tp_doc        = "Parsed S-expression tree (owns the backing memory).",
     .tp_iter       = (getiterfunc)sexp_iter,
     .tp_getset     = sexp_getset,
+    .tp_methods    = sexp_methods,
 };
 
 /* ════════════════════════════════════════════════════════════════

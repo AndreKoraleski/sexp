@@ -174,3 +174,17 @@ void sexp_remove(SExp *tree, uint32_t idx);
  * @return      Pointer to the serialized bytes, or NULL on failure.
  */
 const char *sexp_serialize(const SExp *tree, size_t *len);
+
+/**
+ * Serializes a single node (and its subtree) to S-expression bytes.
+ *
+ * The returned pointer is valid for the lifetime of the tree and is
+ * invalidated by any mutation. No allocation or free is required by the
+ * caller.
+ *
+ * @param tree  Pointer to the tree.
+ * @param idx   Index of the root node to serialize.
+ * @param len   Output parameter for the length of the result in bytes.
+ * @return      Pointer to the serialized bytes, or NULL on failure.
+ */
+const char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *len);

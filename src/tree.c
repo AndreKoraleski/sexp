@@ -431,8 +431,8 @@ void sexp_remove(SExp *tree, uint32_t idx) {
     tree->count--;
 }
 
-const char *sexp_serialize(const SExp *tree, size_t *out_len) {
-    if (tree->count == 0) {
+const char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *out_len) {
+    if (tree->count == 0 || idx >= tree->count) {
         if (out_len != NULL)
             *out_len = 0;
         return NULL;
@@ -442,7 +442,7 @@ const char *sexp_serialize(const SExp *tree, size_t *out_len) {
     if (scratch.base == NULL)
         return NULL;
 
-    size_t needed = measure_node(tree, 0, &scratch);
+    size_t needed = measure_node(tree, idx, &scratch);
     if (needed == 0) {
         arena_free(&scratch);
         return NULL;
@@ -456,7 +456,7 @@ const char *sexp_serialize(const SExp *tree, size_t *out_len) {
 
     arena_reset(&scratch);
     size_t pos = 0;
-    write_node(tree, 0, buf, &pos, &scratch);
+    write_node(tree, idx, buf, &pos, &scratch);
     arena_free(&scratch);
     buf[pos] = '\0';
 
@@ -464,4 +464,8 @@ const char *sexp_serialize(const SExp *tree, size_t *out_len) {
         *out_len = pos;
 
     return buf;
+}
+
+const char *sexp_serialize(const SExp *tree, size_t *out_len) {
+    return sexp_serialize_node(tree, 0, out_len);
 }
