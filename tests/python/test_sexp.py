@@ -1,4 +1,5 @@
 import pytest
+
 import sexp
 
 
@@ -178,7 +179,7 @@ def test_head():
 def test_head_empty_raises():
     t = sexp.parse("()")
     with pytest.raises(IndexError):
-        t.head
+        _ = t.head
 
 
 def test_tail():
@@ -202,7 +203,7 @@ def test_node_head_empty_raises():
     t = sexp.parse("(a () d)")
     empty = t[1]
     with pytest.raises(IndexError):
-        empty.head
+        _ = empty.head
 
 
 def test_node_tail():
@@ -227,7 +228,7 @@ def test_node_value_atom():
 def test_node_value_list_raises():
     t = sexp.parse("(a (b c) d)")
     with pytest.raises(TypeError):
-        t[1].value
+        _ = t[1].value
 
 
 def test_node_value_set():
@@ -245,7 +246,7 @@ def test_node_value_set_nested():
 def test_node_value_set_non_string_raises():
     t = sexp.parse("(a b c)")
     with pytest.raises(TypeError):
-        t[0].value = 42  # type: ignore
+        t[0].value = 42
 
 
 # --- round trip ---

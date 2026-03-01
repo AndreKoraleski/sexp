@@ -1,3 +1,3 @@
-from _sexp import parse, SExp, SExpNode
+from _sexp import SExp, SExpNode, parse
 
-__all__ = ["parse", "SExp", "SExpNode"]
+__all__ = ["SExp", "SExpNode", "parse"]
