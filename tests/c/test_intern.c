@@ -61,6 +61,38 @@ static void test_intern_table_growth(void) {
     }
 }
 
+static void test_intern_stress_growth(void) {
+#define STRESS_N 200
+    char buf[24];
+    AtomId ids[STRESS_N];
+
+    for (int i = 0; i < STRESS_N; i++) {
+        int len = snprintf(buf, sizeof(buf), "stress%d", i);
+        ids[i] = intern_string(buf, (size_t)len);
+        TEST_ASSERT_NOT_EQUAL_MESSAGE(0, ids[i], "intern_string returned 0");
+    }
+
+    for (int i = 0; i < STRESS_N; i++)
+        for (int j = i + 1; j < STRESS_N; j++)
+            TEST_ASSERT_NOT_EQUAL(ids[i], ids[j]);
+
+    for (int i = 0; i < STRESS_N; i++) {
+        int elen = snprintf(buf, sizeof(buf), "stress%d", i);
+        size_t got_len = 0;
+        const char *got = intern_lookup(ids[i], &got_len);
+        TEST_ASSERT_NOT_NULL(got);
+        TEST_ASSERT_EQUAL_UINT((size_t)elen, got_len);
+        TEST_ASSERT_EQUAL_STRING(buf, got);
+    }
+
+    for (int i = 0; i < STRESS_N; i++) {
+        int len = snprintf(buf, sizeof(buf), "stress%d", i);
+        AtomId id2 = intern_string(buf, (size_t)len);
+        TEST_ASSERT_EQUAL_UINT32(ids[i], id2);
+    }
+#undef STRESS_N
+}
+
 static void test_intern_refcount_pool_freed(void) {
     AtomId id = intern_string("x", 1);
     TEST_ASSERT_NOT_EQUAL(0, id);
@@ -81,6 +113,7 @@ void run_intern_tests(void) {
     RUN_TEST(test_intern_lookup_out_of_bounds);
     RUN_TEST(test_intern_table_growth);
     RUN_TEST(test_intern_refcount_pool_freed);
+    RUN_TEST(test_intern_stress_growth);
 }
 
 int main(void) {

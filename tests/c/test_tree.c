@@ -241,6 +241,120 @@ static void test_serialize_roundtrip(void) {
     sexp_free(&tree);
 }
 
+static void test_stress_insert_many(void) {
+#define INSERT_N 200
+    SExp tree = sexp_parse("()", 2);
+    TEST_ASSERT_NOT_NULL(tree.nodes);
+
+    char buf[16];
+    uint32_t prev = SEXP_NULL_INDEX;
+    for (int i = 0; i < INSERT_N; i++) {
+        snprintf(buf, sizeof(buf), "n%d", i);
+        uint32_t n = sexp_node_alloc(&tree, NODE_ATOM);
+        TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, n);
+        sexp_set_atom(&tree, n, buf, strlen(buf));
+        sexp_insert(&tree, 0, prev, n);
+        prev = n;
+    }
+
+    TEST_ASSERT_EQUAL_UINT(INSERT_N + 1, tree.count);
+
+    uint32_t c = sexp_first_child(&tree, 0);
+    int seen = 0;
+    while (c != SEXP_NULL_INDEX) {
+        TEST_ASSERT_EQUAL_INT(NODE_ATOM, sexp_kind(&tree, c));
+        TEST_ASSERT_NOT_EQUAL(0, sexp_atom(&tree, c));
+        seen++;
+        c = sexp_next_sibling(&tree, c);
+    }
+    TEST_ASSERT_EQUAL_INT(INSERT_N, seen);
+    sexp_free(&tree);
+#undef INSERT_N
+}
+
+static void test_stress_remove_sequential(void) {
+#define REMOVE_N 100
+    char input[REMOVE_N * 5 + 4];
+    int pos = 0;
+    input[pos++] = '(';
+    for (int i = 0; i < REMOVE_N; i++) {
+        if (i > 0) input[pos++] = ' ';
+        pos += snprintf(input + pos, sizeof(input) - (size_t)pos, "a%d", i);
+    }
+    input[pos++] = ')';
+    input[pos]   = '\0';
+
+    SExp tree = sexp_parse(input, (size_t)pos);
+    TEST_ASSERT_NOT_NULL(tree.nodes);
+    TEST_ASSERT_EQUAL_UINT(REMOVE_N + 1, tree.count);
+
+    for (int remaining = REMOVE_N; remaining > 0; remaining--) {
+        uint32_t target = sexp_first_child(&tree, 0);
+        for (int step = 0; step < remaining / 2; step++)
+            target = sexp_next_sibling(&tree, target);
+        TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, target);
+
+        sexp_remove(&tree, target);
+        TEST_ASSERT_EQUAL_UINT((uint32_t)remaining, tree.count);
+
+        uint32_t c = sexp_first_child(&tree, 0);
+        int seen = 0;
+        while (c != SEXP_NULL_INDEX) {
+            TEST_ASSERT_EQUAL_INT(NODE_ATOM, sexp_kind(&tree, c));
+            seen++;
+            c = sexp_next_sibling(&tree, c);
+        }
+        TEST_ASSERT_EQUAL_INT(remaining - 1, seen);
+    }
+
+    sexp_free(&tree);
+#undef REMOVE_N
+}
+
+static void test_stress_interleaved_insert_remove(void) {
+#define INTERLEAVE_N 50
+    char input[INTERLEAVE_N * 5 + 4];
+    int pos = 0;
+    input[pos++] = '(';
+    for (int i = 0; i < INTERLEAVE_N; i++) {
+        if (i > 0) input[pos++] = ' ';
+        pos += snprintf(input + pos, sizeof(input) - (size_t)pos, "x%d", i);
+    }
+    input[pos++] = ')';
+    input[pos]   = '\0';
+
+    SExp tree = sexp_parse(input, (size_t)pos);
+    TEST_ASSERT_NOT_NULL(tree.nodes);
+    TEST_ASSERT_EQUAL_UINT((uint32_t)(INTERLEAVE_N + 1), tree.count);
+
+    /* Remove half by always grabbing the fresh first child, avoiding
+     * stale indices caused by swap-with-last in sexp_remove. */
+    int to_remove = INTERLEAVE_N / 2;
+    for (int i = 0; i < to_remove; i++) {
+        uint32_t c = sexp_first_child(&tree, 0);
+        TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, c);
+        sexp_remove(&tree, c);
+    }
+    TEST_ASSERT_EQUAL_UINT((uint32_t)(INTERLEAVE_N - to_remove + 1), tree.count);
+
+    /* Re-append to_remove new atoms to the end. */
+    uint32_t tail = SEXP_NULL_INDEX;
+    uint32_t cx = sexp_first_child(&tree, 0);
+    while (cx != SEXP_NULL_INDEX) { tail = cx; cx = sexp_next_sibling(&tree, cx); }
+
+    for (int i = 0; i < to_remove; i++) {
+        uint32_t n = sexp_node_alloc(&tree, NODE_ATOM);
+        TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, n);
+        sexp_set_atom(&tree, n, "re", 2);
+        sexp_insert(&tree, 0, tail, n);
+        tail = n;
+    }
+
+    TEST_ASSERT_EQUAL_UINT((uint32_t)(INTERLEAVE_N + 1), tree.count);
+    sexp_free(&tree);
+#undef INTERLEAVE_N
+}
+
 void run_tree_tests(void) {
     RUN_TEST(test_parse_empty_input);
     RUN_TEST(test_parse_single_atom);
@@ -262,6 +376,9 @@ void run_tree_tests(void) {
     RUN_TEST(test_serialize_len_matches_strlen);
     RUN_TEST(test_serialize_empty_tree);
     RUN_TEST(test_serialize_roundtrip);
+    RUN_TEST(test_stress_insert_many);
+    RUN_TEST(test_stress_remove_sequential);
+    RUN_TEST(test_stress_interleaved_insert_remove);
 }
 
 int main(void) {

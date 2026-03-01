@@ -132,9 +132,13 @@ static AtomId intern_assign_id(const char *str, size_t len, uint64_t h) {
 
     AtomId id = (AtomId)(global_pool.table.count + 1);
 
-    if (id > global_pool.strings_cap)
-        if (strings_grow(id) != 0)
+    if (id > global_pool.strings_cap) {
+        uint32_t new_cap = global_pool.strings_cap == 0
+            ? INTERN_TABLE_INIT_CAP
+            : global_pool.strings_cap << 1;
+        if (strings_grow(new_cap) != 0)
             return 0;
+    }
 
     if (table_insert(&global_pool.table, h, id) != 0)
         return 0;
