@@ -69,20 +69,26 @@ static Token next_token(Tokenizer *tz) {
     return (Token){ TOKEN_ERROR, NULL, 0 };
 }
 
-/** Dynamic stack of node indices used during parsing. */
+/** Work item on the parse stack. */
+typedef struct ParseFrame {
+    uint32_t node;       /**< Index of the LIST node being parsed. */
+    uint32_t last_child; /**< Index of the last appended child, or SEXP_NULL_INDEX. */
+} ParseFrame;
+
+/** Dynamic stack of parse frames used during parsing. */
 typedef struct ParseStack {
-    uint32_t *data;  /**< Heap-backed array of node indices. */
-    uint32_t  top;   /**< Number of elements currently on the stack. */
-    uint32_t  cap;   /**< Allocated capacity in elements. */
-    Arena    *arena; /**< Arena used for growth allocations. */
+    ParseFrame *data;  /**< Heap-backed array of frames. */
+    uint32_t    top;   /**< Number of elements currently on the stack. */
+    uint32_t    cap;   /**< Allocated capacity in elements. */
+    Arena      *arena; /**< Arena used for growth allocations. */
 } ParseStack;
 
-static int stack_push(ParseStack *stack, uint32_t idx) {
+static int stack_push(ParseStack *stack, uint32_t node) {
     if (stack->top >= stack->cap) {
-        uint32_t  new_cap  = stack->cap == 0 ? PARSE_STACK_INIT_CAP : stack->cap << 1;
-        uint32_t *new_data = arena_alloc(
+        uint32_t    new_cap  = stack->cap == 0 ? PARSE_STACK_INIT_CAP : stack->cap << 1;
+        ParseFrame *new_data = arena_alloc(
             stack->arena,
-            new_cap * sizeof(uint32_t)
+            new_cap * sizeof(ParseFrame)
         );
 
         if (new_data == NULL)
@@ -93,20 +99,30 @@ static int stack_push(ParseStack *stack, uint32_t idx) {
         stack->data = new_data;
         stack->cap  = new_cap;
     }
-    stack->data[stack->top++] = idx;
+    stack->data[stack->top++] = (ParseFrame){ node, SEXP_NULL_INDEX };
     return 0;
 }
 
-static uint32_t stack_pop(ParseStack *stack) {
+static int stack_pop(ParseStack *stack) {
     if (stack->top == 0)
-        return SEXP_NULL_INDEX;
-    return stack->data[--stack->top];
+        return -1;
+    --stack->top;
+    return 0;
 }
 
-static uint32_t stack_peek(const ParseStack *stack) {
+static ParseFrame *stack_peek(ParseStack *stack) {
     if (stack->top == 0)
-        return SEXP_NULL_INDEX;
-    return stack->data[stack->top - 1];
+        return NULL;
+    return &stack->data[stack->top - 1];
+}
+
+static void frame_append_child(SExp *tree, ParseFrame *frame, uint32_t child) {
+    tree->nodes[child].parent = frame->node;
+    if (frame->last_child == SEXP_NULL_INDEX)
+        tree->nodes[frame->node].first_child = child;
+    else
+        tree->nodes[frame->last_child].next_sibling = child;
+    frame->last_child = child;
 }
 
 
@@ -137,17 +153,7 @@ static uint32_t node_alloc(SExp *tree) {
     return idx;
 }
 
-static void node_append_child(SExp *tree, uint32_t parent, uint32_t child) {
-    tree->nodes[child].parent = parent;
-    uint32_t sibling = tree->nodes[parent].first_child;
-    if (sibling == SEXP_NULL_INDEX) {
-        tree->nodes[parent].first_child = child;
-        return;
-    }
-    while (tree->nodes[sibling].next_sibling != SEXP_NULL_INDEX)
-        sibling = tree->nodes[sibling].next_sibling;
-    tree->nodes[sibling].next_sibling = child;
-}
+
 
 /** Work item pushed onto the serialization stack. */
 typedef struct SerializeFrame {
@@ -272,8 +278,10 @@ SExp sexp_parse(const char *src, size_t src_len) {
                 goto error;
 
             tree.nodes[idx].type = NODE_LIST;
-            if (stack_peek(&stack) != SEXP_NULL_INDEX)
-                node_append_child(&tree, stack_peek(&stack), idx);
+
+            ParseFrame *top = stack_peek(&stack);
+            if (top != NULL)
+                frame_append_child(&tree, top, idx);
 
             if (stack_push(&stack, idx) != 0)
                 goto error;
@@ -281,7 +289,7 @@ SExp sexp_parse(const char *src, size_t src_len) {
         }
 
         if (token.kind == TOKEN_RPAREN) {
-            if (stack_pop(&stack) == SEXP_NULL_INDEX)
+            if (stack_pop(&stack) != 0)
                 goto error;
             continue;
         }
@@ -297,8 +305,10 @@ SExp sexp_parse(const char *src, size_t src_len) {
 
             tree.nodes[idx].type    = NODE_ATOM;
             tree.nodes[idx].atom_id = id;
-            if (stack_peek(&stack) != SEXP_NULL_INDEX)
-                node_append_child(&tree, stack_peek(&stack), idx);
+
+            ParseFrame *top = stack_peek(&stack);
+            if (top != NULL)
+                frame_append_child(&tree, top, idx);
             continue;
         }
     }
