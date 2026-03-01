@@ -1,4 +1,6 @@
-from setuptools import setup, Extension
+"""Build configuration for the sexp C extension."""
+
+from setuptools import Extension, setup
 
 sexp_ext = Extension(
     "_sexp",

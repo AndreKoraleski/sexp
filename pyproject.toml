@@ -17,6 +17,7 @@ Repository = "https://github.com/AndreKoraleski/sexp"
 [dependency-groups]
 dev = [
     "mypy>=1.19.1",
+    "pytest>=9.0.2",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.0.0",
     "ruff>=0.15.4",
@@ -36,7 +37,7 @@ ignore = ["ANN401", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "D"]
-"benchmarks/**" = ["ANN", "D"]
+"benchmarks/**" = ["D"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sexp"]
@@ -50,10 +51,14 @@ python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
-exclude = ["^tests/", "^benchmarks/"]
+exclude = ["^tests/"]
 
 [[tool.mypy.overrides]]
 module = "_sexp"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "sexp"
 ignore_missing_imports = true
 
 # -----------------------------------------------------------------------------
