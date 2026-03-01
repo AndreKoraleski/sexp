@@ -41,8 +41,12 @@ typedef struct InternHashTable {
 typedef struct InternPool {
     Arena           arena;       /**< Backing memory for strings and table. */
     InternHashTable table;       /**< Hash table for content-to-id lookup. */
-    char          **strings;     /**< strings[id-1] points to the interned string for that id. */
-    uint32_t        strings_cap; /**< Allocated capacity of the strings array. */
+    char          **strings;     /**< strings[id-1] points to the
+                                  *   interned string for that id. */
+    size_t         *string_lens; /**< string_lens[id-1] is the byte
+                                  *   length of that string. */
+    uint32_t        strings_cap; /**< Allocated capacity of the
+                                  *   strings array. */
     uint32_t        ref_count;   /**< Number of active references. */
 } InternPool;
 
@@ -77,17 +81,6 @@ AtomId intern_string(const char *str, size_t len);
  * @return      Pointer to the interned string bytes, or NULL if invalid.
  */
 const char *intern_lookup(AtomId id, size_t *len);
-
-/**
- * Checks whether two AtomIds refer to equal strings.
- *
- * Equality is a simple integer comparison.
- *
- * @param a  First AtomId.
- * @param b  Second AtomId.
- * @return   Non-zero if equal, zero if not.
- */
-int intern_equal(AtomId a, AtomId b);
 
 /**
  * Retains a reference to the global pool.

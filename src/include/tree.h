@@ -15,15 +15,16 @@
 typedef enum NodeKind {
     NODE_ATOM,    /**< Leaf node carrying an interned atom string. */
     NODE_LIST,    /**< Interior node carrying a list of child nodes. */
-    NODE_INVALID, /**< Sentinel returned for out-of-bounds or invalid indices. */
+    NODE_INVALID, /**< Sentinel returned for out-of-bounds or
+                   *   invalid indices. */
 } NodeKind;
 
 /**
  * A single node in an S-expression tree.
  *
- * Atom nodes carry an AtomId referencing interned string content. List nodes 
+ * Atom nodes carry an AtomId referencing interned string content. List nodes
  * carry connectivity via the left-child right-sibling representation, allowing
- * arbitrary-arity trees with fixed node size. Absent children or siblings are 
+ * arbitrary-arity trees with fixed node size. Absent children or siblings are
  * indicated by SEXP_NULL_INDEX.
  */
 typedef struct Node {
@@ -37,15 +38,15 @@ typedef struct Node {
 /**
  * A parsed S-expression tree.
  *
- * Nodes are stored in a flat array indexed from zero. Node memory is managed 
- * by an internal Arena. The global intern pool is retained on creation and 
- * released on free.
+ * Nodes are stored in a flat array indexed from zero. Node memory is
+ * heap-allocated via realloc. The global intern pool is retained on creation
+ * and released on free.
  */
 typedef struct SExp {
-    Arena    arena; /**< Backing memory for the node array. */
-    Node    *nodes; /**< Flat array of all nodes in the tree. */
+    Node    *nodes; /**< Flat array of all nodes, heap-allocated. */
     uint32_t count; /**< Number of nodes currently in the tree. */
     uint32_t cap;   /**< Capacity of the node array in nodes. */
+    uint8_t  valid; /**< Non-zero if the tree was successfully parsed. */
 } SExp;
 
 /**
@@ -62,8 +63,8 @@ SExp sexp_parse(const char *src, size_t src_len);
 /**
  * Releases all memory owned by the tree.
  *
- * Decrements the intern pool reference count. Should be called automatically 
- * by the Python layer - not intended for direct use.
+ * Decrements the intern pool reference count. Must be called once
+ * for every successfully parsed tree to avoid leaking pool memory.
  *
  * @param tree  Pointer to the tree to release.
  */
@@ -130,19 +131,22 @@ void sexp_set_atom(SExp *tree, uint32_t idx, const char *str, size_t len);
  * Allocates a new unattached node within the tree.
  *
  * The node is appended to the internal node array but has no parent, children,
- * or siblings. Use sexp_set_atom to set its content, then sexp_insert to 
+ * or siblings. Use sexp_set_atom to set its content, then sexp_insert to
  * attach it to the tree.
  *
  * @param tree  Pointer to the tree.
  * @param kind  NODE_ATOM or NODE_LIST.
- * @return      Index for a new node, or SEXP_NULL_INDEX on allocation failure.
+ * @return      Index for a new node, or SEXP_NULL_INDEX on failure.
  */
 uint32_t sexp_node_alloc(SExp *tree, NodeKind kind);
 
 /**
+ * Inserts a node as a child of a list node.
  *
- * If after is SEXP_NULL_INDEX the node is inserted as the first child. All 
+ * If after is SEXP_NULL_INDEX the node is inserted as the first child. All
  * parent and sibling links are updated automatically.
+ * Does nothing if parent, child, or after (when not SEXP_NULL_INDEX) are out
+ * of bounds.
  *
  * @param tree    Pointer to the tree.
  * @param parent  Index of the parent list node.
@@ -154,8 +158,10 @@ void sexp_insert(SExp *tree, uint32_t parent, uint32_t after, uint32_t child);
 /**
  * Removes a node from the tree.
  *
- * The vacated slot is filled by swapping with the last node. All affected 
- * links are updated automatically.
+ * The vacated slot is filled by swapping with the last node. All affected
+ * links are updated automatically. If the node has children they are detached
+ * (parent set to SEXP_NULL_INDEX) but remain in the node array; callers must
+ * remove them separately.
  *
  * @param tree  Pointer to the tree.
  * @param idx   Index of the node to remove.
@@ -165,26 +171,24 @@ void sexp_remove(SExp *tree, uint32_t idx);
 /**
  * Serializes the tree to S-expression bytes.
  *
- * The returned pointer is valid for the lifetime of the tree and is 
- * invalidated by any mutation. No allocation or free is required by the 
- * caller.
+ * The returned buffer is heap-allocated; the caller must free() it.
  *
  * @param tree  Pointer to the tree.
  * @param len   Output parameter for the length of the result in bytes.
- * @return      Pointer to the serialized bytes, or NULL on failure.
+ * @return      Heap-allocated serialized bytes (caller must free), or
+ *              NULL on failure.
  */
-const char *sexp_serialize(const SExp *tree, size_t *len);
+char *sexp_serialize(const SExp *tree, size_t *len);
 
 /**
  * Serializes a single node (and its subtree) to S-expression bytes.
  *
- * The returned pointer is valid for the lifetime of the tree and is
- * invalidated by any mutation. No allocation or free is required by the
- * caller.
+ * The returned buffer is heap-allocated; the caller must free() it.
  *
  * @param tree  Pointer to the tree.
  * @param idx   Index of the root node to serialize.
  * @param len   Output parameter for the length of the result in bytes.
- * @return      Pointer to the serialized bytes, or NULL on failure.
+ * @return      Heap-allocated serialized bytes (caller must free), or
+ *              NULL on failure.
  */
-const char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *len);
+char *sexp_serialize_node(const SExp *tree, uint32_t idx, size_t *len);

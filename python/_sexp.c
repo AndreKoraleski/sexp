@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "sexp.h"
 
@@ -201,10 +202,12 @@ static PyObject *
 sexpnode_repr(SExpNodeObject *self)
 {
     size_t len = 0;
-    const char *s = sexp_serialize_node(&self->owner->tree, self->idx, &len);
+    char *s = sexp_serialize_node(&self->owner->tree, self->idx, &len);
     if (s == NULL)
         return PyUnicode_FromString("");
-    return PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
+    PyObject *result = PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
+    free(s);
+    return result;
 }
 
 static Py_ssize_t
@@ -422,10 +425,13 @@ sexp_repr(SExpObject *self)
     if (self->tree.count == 0)
         return PyUnicode_FromString("");
     size_t len = 0;
-    const char *s = sexp_serialize(&self->tree, &len);
+    char *s = sexp_serialize(&self->tree, &len);
+
     if (s == NULL)
         return PyUnicode_FromString("");
-    return PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
+    PyObject *result = PyUnicode_FromStringAndSize(s, (Py_ssize_t)len);
+    free(s);
+    return result;
 }
 
 static Py_ssize_t
@@ -564,7 +570,7 @@ sexp_parse_func(PyObject *Py_UNUSED(module), PyObject *args)
     obj->tree = sexp_parse((const char *)view.buf, (size_t)view.len);
     PyBuffer_Release(&view);
 
-    if (obj->tree.arena.base == NULL) {
+    if (!obj->tree.valid) {
         Py_DECREF(obj);
         PyErr_SetString(PyExc_ValueError, "failed to parse S-expression");
         return NULL;
