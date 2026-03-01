@@ -14,11 +14,11 @@ typedef uint32_t AtomId;
 /**
  * Open-addressed hash table for string interning.
  *
- * Uses linear probing. Capacity is always a power of two to allow mask-based 
+ * Uses linear probing. Capacity is always a power of two to allow mask-based
  * indexing.
  *
  * A hash value of zero indicates an empty slot. Two strings with the same hash
- * are a true collision and are handled by probing - the hash alone does not 
+ * are a true collision and are handled by probing - the hash alone does not
  * guarantee uniqueness, though the probability of a collision is negligible.
  */
 typedef struct InternHashTable {
@@ -31,12 +31,14 @@ typedef struct InternHashTable {
 /**
  * Global string interning pool.
  *
- * Maps string content to stable AtomIds using an open-addressed hash table 
- * backed by an Arena. Duplicate strings across all parses share the same 
+ * Maps string content to stable AtomIds using an open-addressed hash table
+ * backed by an Arena. Duplicate strings across all parses share the same
  * AtomId.
  *
- * Ownership is reference counted. The pool frees itself when the last 
+ * Ownership is reference counted. The pool frees itself when the last
  * reference is released.
+ *
+ * All public intern_* functions are thread-safe.
  */
 typedef struct InternPool {
     Arena           arena;       /**< Backing memory for strings and table. */
@@ -85,7 +87,7 @@ const char *intern_lookup(AtomId id, size_t *len);
 /**
  * Retains a reference to the global pool.
  *
- * Increments the reference count. Each retain must be paired with a 
+ * Increments the reference count. Each retain must be paired with a
  * corresponding release.
  */
 void intern_retain(void);
@@ -93,7 +95,7 @@ void intern_retain(void);
 /**
  * Releases a reference to the global pool.
  *
- * Decrements the reference count. When it reaches zero the pool frees all 
+ * Decrements the reference count. When it reaches zero the pool frees all
  * owned memory.
  */
 void intern_release(void);

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "arena.h"
 #include "intern.h"
@@ -13,6 +14,7 @@ static const uint64_t FNV_PRIME        = 1099511628211ULL;
 
 static InternPool global_pool;
 static int global_pool_initialized = 0;
+static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static uint64_t hash(const void *data, size_t len) {
     const uint8_t *bytes = data;
@@ -160,22 +162,33 @@ static AtomId intern_assign_id(const char *str, size_t len, uint64_t h) {
 }
 
 const char *intern_lookup(AtomId id, size_t *len) {
-    if (!global_pool_initialized || id == 0 || id > global_pool.strings_cap)
+    pthread_mutex_lock(&pool_lock);
+    if (!global_pool_initialized
+            || id == 0
+            || id > global_pool.strings_cap) {
+        pthread_mutex_unlock(&pool_lock);
         return NULL;
+    }
 
     const char *str = global_pool.strings[id - 1];
-    if (str == NULL)
+    if (str == NULL) {
+        pthread_mutex_unlock(&pool_lock);
         return NULL;
+    }
 
     if (len != NULL)
         *len = global_pool.string_lens[id - 1];
 
+    pthread_mutex_unlock(&pool_lock);
     return str;
 }
 
 int intern_init(void) {
-    if (global_pool_initialized)
+    pthread_mutex_lock(&pool_lock);
+    if (global_pool_initialized) {
+        pthread_mutex_unlock(&pool_lock);
         return 0;
+    }
 
     global_pool.arena = arena_init(ARENA_DEFAULT_CAP);
 
@@ -197,8 +210,7 @@ int intern_init(void) {
 
     memset(global_pool.table.hashes, 0,
         initial_cap * sizeof(uint64_t));
-
-        memset(global_pool.table.ids, 0,
+    memset(global_pool.table.ids, 0,
         initial_cap * sizeof(AtomId));
 
     global_pool.table.count = 0;
@@ -208,40 +220,50 @@ int intern_init(void) {
     global_pool.strings_cap = 0;
     global_pool.ref_count   = 0;
     global_pool_initialized = 1;
+    pthread_mutex_unlock(&pool_lock);
     return 0;
 }
 
 AtomId intern_string(const char *str, size_t len) {
-    if (!global_pool_initialized)
+    pthread_mutex_lock(&pool_lock);
+    if (!global_pool_initialized) {
+        pthread_mutex_unlock(&pool_lock);
         return 0;
+    }
 
     uint64_t h = hash(str, len);
 
     AtomId id = intern_lookup_hash(h, str, len);
-    if (id != 0)
+    if (id != 0) {
+        pthread_mutex_unlock(&pool_lock);
         return id;
+    }
 
     if (global_pool.table.count >=
             global_pool.table.cap / INTERN_TABLE_LOAD_DENOM)
-        if (table_grow() != 0)
+        if (table_grow() != 0) {
+            pthread_mutex_unlock(&pool_lock);
             return 0;
+        }
 
     id = intern_assign_id(str, len, h);
-    if (id == 0)
-        return 0;
-
+    pthread_mutex_unlock(&pool_lock);
     return id;
 }
 
 void intern_retain(void) {
-    if (!global_pool_initialized)
-        return;
-    global_pool.ref_count++;
+    pthread_mutex_lock(&pool_lock);
+    if (global_pool_initialized)
+        global_pool.ref_count++;
+    pthread_mutex_unlock(&pool_lock);
 }
 
 void intern_release(void) {
-    if (!global_pool_initialized)
+    pthread_mutex_lock(&pool_lock);
+    if (!global_pool_initialized) {
+        pthread_mutex_unlock(&pool_lock);
         return;
+    }
 
     if (global_pool.ref_count > 0)
         global_pool.ref_count--;
@@ -251,4 +273,5 @@ void intern_release(void) {
         global_pool = (InternPool){0};
         global_pool_initialized = 0;
     }
+    pthread_mutex_unlock(&pool_lock);
 }

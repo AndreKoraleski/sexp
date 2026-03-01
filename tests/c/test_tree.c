@@ -335,12 +335,16 @@ static void test_stress_interleaved_insert_remove(void) {
         TEST_ASSERT_NOT_EQUAL(SEXP_NULL_INDEX, c);
         sexp_remove(&tree, c);
     }
-    TEST_ASSERT_EQUAL_UINT((uint32_t)(INTERLEAVE_N - to_remove + 1), tree.count);
+    TEST_ASSERT_EQUAL_UINT(
+        (uint32_t)(INTERLEAVE_N - to_remove + 1), tree.count);
 
     /* Re-append to_remove new atoms to the end. */
     uint32_t tail = SEXP_NULL_INDEX;
     uint32_t cx = sexp_first_child(&tree, 0);
-    while (cx != SEXP_NULL_INDEX) { tail = cx; cx = sexp_next_sibling(&tree, cx); }
+    while (cx != SEXP_NULL_INDEX) {
+        tail = cx;
+        cx = sexp_next_sibling(&tree, cx);
+    }
 
     for (int i = 0; i < to_remove; i++) {
         uint32_t n = sexp_node_alloc(&tree, NODE_ATOM);

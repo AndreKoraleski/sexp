@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(Threads REQUIRED)
+
 add_library(sexp_core STATIC
     src/arena.c
     src/intern.c
@@ -13,6 +15,7 @@ add_library(sexp_core STATIC
 
 target_include_directories(sexp_core PUBLIC src/include)
 target_compile_options(sexp_core PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(sexp_core PUBLIC Threads::Threads)
 
 enable_testing()
 add_subdirectory(tests/c)
