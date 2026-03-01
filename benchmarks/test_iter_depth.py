@@ -6,10 +6,6 @@ import sexp
 from benchmarks.inputs import DEEP, WIDE
 
 _DEEP_TREE: sexp.SExp = sexp.parse(DEEP)
-# WIDE = generate(1, 34): same 69 nodes as DEEP = generate(8, 6).
-# Any performance gap between test_deep_traversal and test_wide_traversal
-# reflects pure traversal-pattern cost (sibling hops vs child hops),
-# not a difference in tree size.
 _WIDE_TREE: sexp.SExp = sexp.parse(WIDE)
 
 
