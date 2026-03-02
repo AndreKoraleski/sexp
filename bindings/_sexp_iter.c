@@ -8,8 +8,9 @@ SExpNodeObject *node_from_index(SExpObject *owner, uint32_t index) {
         return NULL;
     }
     Py_INCREF(owner);
-    object->owner = owner;
-    object->index = index;
+    object->owner      = owner;
+    object->index      = index;
+    object->generation = owner->generation;
     return object;
 }
 
@@ -19,6 +20,7 @@ void sexpiter_dealloc(SExpIterObject *self) {
 }
 
 PyObject *sexpiter_next(SExpIterObject *self) {
+    SEXPITER_CHECK_VALID(self);
     if (self->next == SEXP_NULL_INDEX) {
         return NULL;
     }
@@ -35,8 +37,9 @@ PyObject *make_iter(PyTypeObject *type_object, SExpObject *owner, uint32_t start
         return NULL;
     }
     Py_INCREF(owner);
-    iterator->owner = owner;
-    iterator->next  = start;
+    iterator->owner      = owner;
+    iterator->next       = start;
+    iterator->generation = owner->generation;
     return (PyObject *)iterator;
 }
 
