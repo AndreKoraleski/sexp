@@ -46,6 +46,8 @@ known-first-party = ["sexp"]
 # Mypy
 # -----------------------------------------------------------------------------
 
+# stubs/ holds hand-written type stubs for third-party packages that ship no
+# annotations of their own.
 [tool.mypy]
 python_version = "3.10"
 strict = true

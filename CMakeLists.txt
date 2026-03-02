@@ -21,7 +21,10 @@ add_library(sexp_core STATIC
 )
 
 target_include_directories(sexp_core PUBLIC src)
-target_compile_options(sexp_core PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(sexp_core PRIVATE
+    $<$<C_COMPILER_ID:MSVC>:/W3>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+)
 target_link_libraries(sexp_core PUBLIC Threads::Threads)
 
 enable_testing()
