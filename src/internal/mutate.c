@@ -1,5 +1,7 @@
 #include <stdlib.h>
 
+#include "internal/mutate.h"
+
 #include "core/tree.h"
 
 /**

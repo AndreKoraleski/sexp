@@ -1,7 +1,7 @@
 #include "unity.h"
 
 #include "memory/intern.h"
-#include "core/tree.h"
+#include "sexp.h"
 
 void setUp(void) {
     intern_init();

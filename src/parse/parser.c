@@ -1,5 +1,7 @@
 #include <stdlib.h>
 
+#include "parse/parser.h"
+
 #include "core/node.h"
 #include "core/tree.h"
 #include "memory/intern.h"

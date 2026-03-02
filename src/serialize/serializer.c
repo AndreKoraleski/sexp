@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "serialize/serializer.h"
+
 #include "core/tree.h"
 #include "memory/arena.h"
 #include "memory/intern.h"
