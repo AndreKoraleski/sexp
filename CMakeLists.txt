@@ -23,7 +23,7 @@ add_library(sexp_core STATIC
 target_include_directories(sexp_core PUBLIC src)
 target_compile_options(sexp_core PRIVATE
     $<$<C_COMPILER_ID:MSVC>:/W3>
-    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>
 )
 target_link_libraries(sexp_core PUBLIC Threads::Threads)
 
@@ -46,8 +46,8 @@ if(SKBUILD)
     target_include_directories(_sexp PRIVATE src)
     target_link_libraries(_sexp PRIVATE sexp_core)
     target_compile_options(_sexp PRIVATE
-        $<$<C_COMPILER_ID:MSVC>:/W3 /O2>
-        $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -O2>
+        $<$<C_COMPILER_ID:MSVC>:/W3;/O2>
+        $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall;-Wextra;-O2>
     )
 
     install(TARGETS _sexp DESTINATION .)
