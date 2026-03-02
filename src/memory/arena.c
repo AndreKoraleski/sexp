@@ -53,9 +53,9 @@ void *arena_alloc(Arena *arena, size_t size) {
 
         *chunk = *arena;
 
-        arena->base          = new_buffer;
-        arena->capacity      = new_capacity;
-        arena->position      = 0;
+        arena->base           = new_buffer;
+        arena->capacity       = new_capacity;
+        arena->position       = 0;
         arena->previous_chunk = chunk;
     }
 
@@ -86,9 +86,9 @@ void arena_reset(Arena *arena) {
 
     /* Adopt the oldest surviving chunk as the current one and rewind it. */
     free(arena->base);
-    arena->base          = chunk->base;
-    arena->capacity      = chunk->capacity;
-    arena->position      = 0;
+    arena->base           = chunk->base;
+    arena->capacity       = chunk->capacity;
+    arena->position       = 0;
     arena->previous_chunk = NULL;
 
     free(chunk);

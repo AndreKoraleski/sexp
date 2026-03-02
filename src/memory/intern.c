@@ -29,7 +29,7 @@ static pthread_mutex_t pool_lock               = PTHREAD_MUTEX_INITIALIZER;
  * @return uint64_t FNV-1a hash of the input data, or 1 if the computed hash is zero.
  */
 static uint64_t hash(const void *data, size_t length) {
-    const uint8_t *bytes    = data;
+    const uint8_t *bytes      = data;
     uint64_t       hash_value = FNV_OFFSET_BASIS;
 
     for (size_t i = 0; i < length; i++) {
@@ -64,8 +64,8 @@ static int table_insert(InternHashTable *table, uint64_t hash_value, AtomId atom
         slot = (slot + 1) & mask;
     }
 
-    table->hashes[slot] = hash_value;
-    table->atom_ids[slot]    = atom_id;
+    table->hashes[slot]   = hash_value;
+    table->atom_ids[slot] = atom_id;
     table->count++;
     return 0;
 }
@@ -79,7 +79,7 @@ static int table_insert(InternHashTable *table, uint64_t hash_value, AtomId atom
 static int table_grow(void) {
     uint32_t  new_capacity = global_pool.table.capacity << 1;
     uint64_t *new_hashes   = malloc(new_capacity * sizeof(uint64_t));
-    AtomId   *new_atom_ids      = malloc(new_capacity * sizeof(AtomId));
+    AtomId   *new_atom_ids = malloc(new_capacity * sizeof(AtomId));
 
     if (new_hashes == NULL || new_atom_ids == NULL) {
         free(new_hashes);
@@ -100,8 +100,8 @@ static int table_grow(void) {
                 slot = (slot + 1) & mask;
             }
 
-            new_hashes[slot] = global_pool.table.hashes[i];
-            new_atom_ids[slot]    = global_pool.table.atom_ids[i];
+            new_hashes[slot]   = global_pool.table.hashes[i];
+            new_atom_ids[slot] = global_pool.table.atom_ids[i];
         }
     }
 
@@ -109,7 +109,7 @@ static int table_grow(void) {
     free(global_pool.table.atom_ids);
 
     global_pool.table.hashes   = new_hashes;
-    global_pool.table.atom_ids      = new_atom_ids;
+    global_pool.table.atom_ids = new_atom_ids;
     global_pool.table.capacity = new_capacity;
     return 0;
 }
@@ -261,9 +261,9 @@ int intern_init(void) {
         return -1;
     }
 
-    uint32_t initial_capacity = INTERN_TABLE_INIT_CAPACITY;
-    global_pool.table.hashes  = malloc(initial_capacity * sizeof(uint64_t));
-    global_pool.table.atom_ids     = malloc(initial_capacity * sizeof(AtomId));
+    uint32_t initial_capacity  = INTERN_TABLE_INIT_CAPACITY;
+    global_pool.table.hashes   = malloc(initial_capacity * sizeof(uint64_t));
+    global_pool.table.atom_ids = malloc(initial_capacity * sizeof(AtomId));
 
     if (global_pool.table.hashes == NULL || global_pool.table.atom_ids == NULL) {
         free(global_pool.table.hashes);

@@ -58,7 +58,7 @@ static size_t measure_node(const SExp *tree, uint32_t root, Arena *scratch) {
         }
 
         total += 2;
-        uint32_t child      = tree->nodes[index].first_child;
+        uint32_t child       = tree->nodes[index].first_child;
         uint32_t child_count = 0;
         while (child != SEXP_NULL_INDEX) {
             work[top++] = child;
@@ -112,10 +112,10 @@ static uint32_t push_list_children(
     stack[top++] = (SerializeFrame){0, 1, 0};
 
     uint32_t child_count = 0;
-    uint32_t child      = tree->nodes[index].first_child;
+    uint32_t child       = tree->nodes[index].first_child;
     while (child != SEXP_NULL_INDEX) {
         children[child_count++] = child;
-        child                  = tree->nodes[child].next_sibling;
+        child                   = tree->nodes[child].next_sibling;
     }
 
     for (uint32_t i = child_count; i > 0; i--) {
@@ -189,7 +189,7 @@ write_node(const SExp *tree, uint32_t root, char *destination, size_t *position,
  * @return size_t        Total serialized byte length of all top-level nodes.
  */
 static size_t measure_top_level(const SExp *tree, Arena *scratch, uint32_t *output_root_count) {
-    size_t   total   = 0;
+    size_t   total      = 0;
     uint32_t root_count = 0;
     for (uint32_t i = 0; i < tree->count; i++) {
 
@@ -289,7 +289,7 @@ char *sexp_serialize(const SExp *tree, size_t *output_length) {
     }
 
     uint32_t root_count = 0;
-    size_t   total   = measure_top_level(tree, &scratch, &root_count);
+    size_t   total      = measure_top_level(tree, &scratch, &root_count);
 
     if (root_count == 0 || total == 0) {
         arena_free(&scratch);

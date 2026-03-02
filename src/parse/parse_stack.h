@@ -20,7 +20,8 @@ typedef struct ParseFrame {
  * @brief Dynamic stack of parse frames used during parsing.
  */
 typedef struct ParseStack {
-    ParseFrame  inline_buffer[PARSE_STACK_INLINE_CAPACITY]; /**< Inline storage for typical depths. */
+    ParseFrame
+        inline_buffer[PARSE_STACK_INLINE_CAPACITY]; /**< Inline storage for typical depths. */
     ParseFrame *data; /**< Points to inline_buffer initially, or a heap allocation on overflow. */
     uint32_t    top;  /**< Number of elements currently on the stack. */
     uint32_t    capacity; /**< Allocated capacity in elements. */

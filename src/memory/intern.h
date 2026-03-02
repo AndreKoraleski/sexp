@@ -22,7 +22,7 @@ typedef uint32_t AtomId;
  */
 typedef struct InternHashTable {
     uint64_t *hashes;   /**< Full 64-bit hashes (0 = empty slot). */
-    AtomId   *atom_ids;      /**< AtomId for each occupied slot. */
+    AtomId   *atom_ids; /**< AtomId for each occupied slot. */
     uint32_t  count;    /**< Number of occupied slots. */
     uint32_t  capacity; /**< Total slot count, always a power of two. */
 } InternHashTable;

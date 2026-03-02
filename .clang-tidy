@@ -2,34 +2,23 @@
 # Enabled check categories
 # All checks in each group are enabled, then individual noisy or irrelevant
 # ones are disabled with a leading dash.
+#
+# Disabled:
+#   -bugprone-easily-swappable-parameters   -- C functions often share a type by design
+#   -bugprone-reserved-identifier           -- fires on common POSIX/system headers
+#   -cert-dcl37-c / -cert-dcl51-cpp        -- same POSIX reserved-identifier false positives
+#   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+#                                           -- fires on every memcpy/memset in low-level code
+#   -misc-include-cleaner                   -- false positives with umbrella headers
 # ---------------------------------------------------------------------------
-Checks: >
-  clang-analyzer-*,
-  bugprone-*,
-  cert-*,
-  misc-*,
-  performance-*,
-  portability-*,
-  readability-*,
-  # Parameters in C often share a type by design (e.g. size_t a, size_t b).
-  -bugprone-easily-swappable-parameters,
-  # Reserved-identifier rules flag common POSIX/system headers; not relevant
-  # for application code.
-  -bugprone-reserved-identifier,
-  -cert-dcl37-c,
-  -cert-dcl51-cpp,
-  # The "unsafe buffer" warning fires on every direct memcpy/memset call,
-  # which is unavoidable in a low-level allocator.
-  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
-  # Include-cleaner produces false positives with umbrella headers.
-  -misc-include-cleaner
+Checks: "clang-analyzer-*,bugprone-*,cert-*,misc-*,performance-*,portability-*,readability-*,-bugprone-easily-swappable-parameters,-bugprone-reserved-identifier,-cert-dcl37-c,-cert-dcl51-cpp,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,-misc-include-cleaner"
 
 # Any active check that fires is treated as a build error.
 WarningsAsErrors: "*"
 
 # Only surface diagnostics that originate from project headers, not from
 # system or third-party headers.
-HeaderFilterRegex: "(src|python)/.*\\.h$"
+HeaderFilterRegex: "(src|bindings)/.*\\.h$"
 
 # ---------------------------------------------------------------------------
 # Per-check option overrides

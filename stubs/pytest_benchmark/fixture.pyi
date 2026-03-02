@@ -10,7 +10,6 @@ class BenchmarkFixture:
         *args: Any,
         **kwargs: Any,
     ) -> Any: ...
-
     def pedantic(
         self,
         target: Callable[..., Any],

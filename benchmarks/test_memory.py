@@ -9,10 +9,10 @@ import sexp
 from benchmarks.inputs import DEEP, LARGE, MEDIUM, SMALL
 
 _PARAMS = [
-    pytest.param(SMALL,  1000, id="small"),
+    pytest.param(SMALL, 1000, id="small"),
     pytest.param(MEDIUM, 1000, id="medium"),
-    pytest.param(LARGE,   100, id="large"),
-    pytest.param(DEEP,    100, id="deep"),
+    pytest.param(LARGE, 100, id="large"),
+    pytest.param(DEEP, 100, id="deep"),
 ]
 
 

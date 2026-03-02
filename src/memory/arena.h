@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ARENA_DEFAULT_CAPACITY 65536 /* 64KB */
+#define ARENA_DEFAULT_CAPACITY 8192 /* 8KB */
 
 /**
  * @brief Linear (bump) allocator with automatic chunk-based growth.
@@ -14,9 +14,9 @@
  * internally.
  */
 typedef struct Arena {
-    uint8_t      *base;          /**< Start of the current chunk. */
-    size_t        capacity;      /**< Capacity of the current chunk in bytes. */
-    size_t        position;      /**< Current allocation offset in bytes. */
+    uint8_t      *base;           /**< Start of the current chunk. */
+    size_t        capacity;       /**< Capacity of the current chunk in bytes. */
+    size_t        position;       /**< Current allocation offset in bytes. */
     struct Arena *previous_chunk; /**< Previous chunk, or NULL if first. */
 } Arena;
 
