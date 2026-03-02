@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import overload
+from typing import NoReturn, overload
 
 class SExp:
     """Parsed S-expression tree (owns the backing memory).
@@ -13,12 +13,21 @@ class SExp:
     non-owning reference back to this object.
     """
 
+    def __new__(cls) -> SExp:
+        """Create an empty S-expression tree, equivalent to ``parse("()")``."""
+        ...
     def __repr__(self) -> str: ...
     def __len__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
+    __hash__: None  # type: ignore[assignment]
+    def __contains__(self, item: object) -> bool: ...
     @overload
     def __getitem__(self, key: int) -> SExpNode: ...
     @overload
     def __getitem__(self, key: str) -> SExpNode: ...
+    @overload
+    def __getitem__(self, key: slice) -> list[SExpNode]: ...
     def __iter__(self) -> Iterator[SExpNode]: ...
     @property
     def head(self) -> SExpNode:
@@ -36,20 +45,42 @@ class SExp:
         ...
 
     def new_atom(self, value: str) -> SExpNode:
-        """Allocate a new unattached atom node with the given string value.
-
-        The node exists in the tree's node array but has no parent, so it does
-        not affect ``len(self)`` or ``repr(self)`` until it is attached via
-        ``append``, ``prepend``, or ``insert_after``.
-        """
+        """Allocate a new unattached atom node with the given string value."""
         ...
 
     def new_list(self) -> SExpNode:
-        """Allocate a new unattached empty list node.
+        """Allocate a new unattached empty list node."""
+        ...
 
-        The node exists in the tree's node array but has no parent, so it does
-        not affect ``len(self)`` or ``repr(self)`` until it is attached.
-        """
+    def append(self, child: SExpNode) -> None:
+        """Append child as the last top-level node."""
+        ...
+
+    def prepend(self, child: SExpNode) -> None:
+        """Insert child as the first top-level node."""
+        ...
+
+    def insert_after(self, after: SExpNode | None, child: SExpNode) -> None:
+        """Insert child after the given top-level sibling. Pass None to prepend."""
+        ...
+
+    def clone(self) -> SExp:
+        """Deep-copy this tree into a new independent SExp."""
+        ...
+
+    @property
+    def is_atom(self) -> bool:
+        """Always False: the tree root is a list."""
+        ...
+
+    @property
+    def value(self) -> NoReturn:
+        """Always raises TypeError: the root is not an atom."""
+        ...
+
+    @property
+    def parent(self) -> None:
+        """Always None: the root has no parent."""
         ...
 
 class SExpNode:
@@ -62,10 +93,16 @@ class SExpNode:
 
     def __repr__(self) -> str: ...
     def __len__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __ne__(self, other: object) -> bool: ...
+    __hash__: None  # type: ignore[assignment]
+    def __contains__(self, item: object) -> bool: ...
     @overload
     def __getitem__(self, key: int) -> SExpNode: ...
     @overload
     def __getitem__(self, key: str) -> SExpNode: ...
+    @overload
+    def __getitem__(self, key: slice) -> list[SExpNode]: ...
     def __iter__(self) -> Iterator[SExpNode]: ...
     @property
     def head(self) -> SExpNode:
@@ -136,46 +173,39 @@ class SExpNode:
         ...
 
     def append(self, child: SExpNode) -> None:
-        """Append *child* as the last child of this list node.
-
-        Raises:
-            TypeError:  If *child* is not an :class:`SExpNode`.
-            ValueError: If *child* belongs to a different tree.
-
-        """
+        """Append *child* as the last child of this list node."""
         ...
 
     def prepend(self, child: SExpNode) -> None:
-        """Insert *child* as the first child of this list node.
-
-        Raises:
-            TypeError:  If *child* is not an :class:`SExpNode`.
-            ValueError: If *child* belongs to a different tree.
-
-        """
+        """Insert *child* as the first child of this list node."""
         ...
 
     def insert_after(self, after: SExpNode | None, child: SExpNode) -> None:
-        """Insert *child* immediately after *after* in this node's child list.
+        """Insert *child* immediately after *after* in this node's child list."""
+        ...
 
-        If *after* is ``None`` the node is inserted as the first child
-        (equivalent to ``prepend``).  *child* is automatically detached from
-        its current parent first.
+    def new_atom(self, value: str) -> SExpNode:
+        """Allocate a new unattached atom node in the owning tree."""
+        ...
 
-        Raises:
-            TypeError:  If *after* is not an :class:`SExpNode` or ``None``,
-                        or if *child* is not an :class:`SExpNode`.
-            ValueError: If *child* or *after* belong to a different tree.
-
-        """
+    def new_list(self) -> SExpNode:
+        """Allocate a new unattached list node in the owning tree."""
         ...
 
 def parse(source: str | bytes | bytearray) -> SExp:
     """Parse an S-expression from *source* and return the tree.
 
     Raises:
-        ValueError: If the input is malformed
+        ParseError: If the input is malformed
                     (unclosed parenthesis, stray closing parenthesis, etc.).
 
     """
+    ...
+
+class ParseError(ValueError):
+    """Raised when an S-expression string cannot be parsed.
+
+    Subclass of ValueError for backwards compatibility.
+    """
+
     ...

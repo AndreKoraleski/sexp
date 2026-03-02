@@ -15,7 +15,7 @@ class BenchmarkFixture:
         target: Callable[..., Any],
         args: tuple[Any, ...] = ...,
         kwargs: dict[str, Any] | None = ...,
-        setup: Callable[[], None] | None = ...,
+        setup: Callable[[], Any] | None = ...,
         teardown: Callable[[], None] | None = ...,
         rounds: int = ...,
         warmup_rounds: int = ...,

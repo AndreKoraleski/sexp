@@ -5,8 +5,9 @@ checkers resolve ``import sexp`` and ``from sexp import SExp, SExpNode, parse``
 correctly without needing to inspect the C extension directly.
 """
 
+from _sexp import ParseError as ParseError
 from _sexp import SExp as SExp
 from _sexp import SExpNode as SExpNode
 from _sexp import parse as parse
 
-__all__ = ["SExp", "SExpNode", "parse"]
+__all__ = ["ParseError", "SExp", "SExpNode", "parse"]
