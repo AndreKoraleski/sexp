@@ -16,8 +16,8 @@ add_library(sexp_core STATIC
     src/parse/parse_stack.c
     src/parse/parser.c
     src/serialize/serializer.c
-    src/internal/mutate.c
-    src/internal/clone.c
+    src/core/mutate.c
+    src/core/clone.c
 )
 
 target_include_directories(sexp_core PUBLIC src)
@@ -26,3 +26,26 @@ target_link_libraries(sexp_core PUBLIC Threads::Threads)
 
 enable_testing()
 add_subdirectory(tests/c)
+
+# ---------------------------------------------------------------------------
+# Python extension
+# ---------------------------------------------------------------------------
+if(SKBUILD)
+    find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+
+    python_add_library(_sexp MODULE
+        bindings/_sexp.c
+        bindings/_sexp_iter.c
+        bindings/_sexp_node.c
+        bindings/_sexp_tree.c
+    )
+
+    target_include_directories(_sexp PRIVATE src)
+    target_link_libraries(_sexp PRIVATE sexp_core)
+    target_compile_options(_sexp PRIVATE
+        $<$<C_COMPILER_ID:MSVC>:/W3 /O2>
+        $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -O2>
+    )
+
+    install(TARGETS _sexp DESTINATION .)
+endif()

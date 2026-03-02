@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "sexp"
@@ -103,3 +103,11 @@ archs = ["x86_64", "arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+
+# -----------------------------------------------------------------------------
+# scikit-build-core
+# -----------------------------------------------------------------------------
+
+[tool.scikit-build]
+wheel.packages = ["bindings/sexp"]
+cmake.build-type = "Release"

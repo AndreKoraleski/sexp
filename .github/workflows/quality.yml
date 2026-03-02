@@ -1,5 +1,3 @@
-# Static analysis, formatting checks, and type-checking.
-# Runs on every push to master and on every pull request.
 name: Quality
 
 on:
@@ -41,15 +39,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # pytest is required so mypy can resolve the pytest annotations used in
-        # benchmarks/.  stubs/ in the repo provides types for pytest-benchmark
-        # (which ships no annotations of its own).
         run: |
           pip install mypy pytest
-          pip install -e . --no-build-isolation
+          pip install -e .
 
       - name: Type-check
-        run: mypy python/ benchmarks/
+        run: mypy bindings/ benchmarks/
 
   # ── C ───────────────────────────────────────────────────────────────────────
   c-format:
@@ -64,7 +59,7 @@ jobs:
 
       - name: Check formatting
         run: |
-          find src python -name '*.c' -o -name '*.h' \
+          find src bindings -name '*.c' -o -name '*.h' \
             | xargs clang-format --dry-run --Werror
 
   c-lint:
@@ -78,10 +73,6 @@ jobs:
         run: sudo apt-get install -y clang clang-tidy cmake
 
       - name: Configure (generate compile_commands.json)
-        # cmake -B build writes build/compile_commands.json, which clang-tidy
-        # uses to resolve include paths and compiler flags.
-        # Only src/ is listed in CMakeLists.txt; python/ extension files need
-        # Python headers and are covered separately by cppcheck below.
         run: cmake -B build
 
       - name: Run clang-tidy
@@ -100,8 +91,6 @@ jobs:
         run: sudo apt-get install -y cppcheck
 
       - name: Run cppcheck
-        # src/ contains the core C library; python/ contains the CPython
-        # extension wrappers.  Both share the same include root (src/).
         run: |
           cppcheck \
             --enable=warning,style,performance,portability \
@@ -109,4 +98,4 @@ jobs:
             --error-exitcode=1 \
             --suppress=missingIncludeSystem \
             -I src \
-            src/ python/
+            src/ bindings/
