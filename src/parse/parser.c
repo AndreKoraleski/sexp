@@ -17,14 +17,13 @@
  * @return int  0 on success, -1 on allocation failure.
  */
 static int parse_handle_lparen(SExp *tree, ParseStack *stack) {
-    uint32_t node_index = allocate_node(tree);
+    uint32_t node_index = sexp_allocate_node(tree, NODE_LIST);
 
     if (node_index == SEXP_NULL_INDEX) {
         return -1;
     }
 
-    tree->nodes[node_index].type = NODE_LIST;
-    ParseFrame *frame            = stack_peek(stack);
+    ParseFrame *frame = stack_peek(stack);
 
     if (frame != NULL) {
         frame_append_child(tree, frame, node_index);
@@ -48,13 +47,12 @@ static int parse_handle_atom(SExp *tree, ParseStack *stack, Token token) {
         return -1;
     }
 
-    uint32_t node_index = allocate_node(tree);
+    uint32_t node_index = sexp_allocate_node(tree, NODE_ATOM);
 
     if (node_index == SEXP_NULL_INDEX) {
         return -1;
     }
 
-    tree->nodes[node_index].type    = NODE_ATOM;
     tree->nodes[node_index].atom_id = atom_id;
     ParseFrame *frame               = stack_peek(stack);
 

@@ -44,14 +44,3 @@ typedef struct SExp {
     uint32_t capacity; /**< Allocated capacity of the node array in elements. */
     uint8_t  valid;    /**< Non-zero if the tree was successfully parsed. */
 } SExp;
-
-/**
- * @brief Allocates a new blank node, growing the node array if needed.
- *
- * Internal function used by the parser and public node allocation API. The returned node is
- * initialised to NODE_ATOM with all links set to SEXP_NULL_INDEX.
- *
- * @param tree  Pointer to the target tree.
- * @return      Index of the new node, or SEXP_NULL_INDEX on allocation failure.
- */
-uint32_t allocate_node(SExp *tree);

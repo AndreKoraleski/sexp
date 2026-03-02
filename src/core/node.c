@@ -6,7 +6,7 @@
 /** Initial node array capacity allocated on first use. */
 #define NODE_ARRAY_INITIAL_CAPACITY 64
 
-uint32_t allocate_node(SExp *tree) {
+static uint32_t allocate_node(SExp *tree) {
     if (tree->count >= tree->capacity) {
         /* Double capacity on each growth, starting from the initial fixed capacity. */
         uint32_t new_capacity =
