@@ -15,14 +15,14 @@ _DEEP_TREE: Final[sexp.SExp] = sexp.parse(DEEP)
 _WIDE_TREE: Final[sexp.SExp] = sexp.parse(WIDE)
 
 TREES: Final = [
-    pytest.param(_SMALL_TREE, id="small"),
-    pytest.param(_MEDIUM_TREE, id="medium"),
-    pytest.param(_LARGE_TREE, id="large"),
-    pytest.param(_DEEP_TREE, id="deep"),
-    pytest.param(_WIDE_TREE, id="wide"),
+    pytest.param(_SMALL_TREE, 1000, id="small"),
+    pytest.param(_MEDIUM_TREE, 1000, id="medium"),
+    pytest.param(_LARGE_TREE,   100, id="large"),
+    pytest.param(_DEEP_TREE,    100, id="deep"),
+    pytest.param(_WIDE_TREE,    100, id="wide"),
 ]
 
 
-@pytest.mark.parametrize("tree", TREES)
-def test_serialize(benchmark: BenchmarkFixture, tree: sexp.SExp) -> None:
-    benchmark(repr, tree)
+@pytest.mark.parametrize("tree,iterations", TREES)
+def test_serialize(benchmark: BenchmarkFixture, tree: sexp.SExp, iterations: int) -> None:
+    benchmark.pedantic(repr, args=(tree,), iterations=iterations, rounds=100)

@@ -11,16 +11,14 @@ WARM_DATA: Final[bytes] = MEDIUM
 
 _COLD_POOL_SIZE: Final[int] = 10_000
 _COLD_POOL: Final[list[bytes]] = [
-    b"(rec"
-    + b"".join(f" (k{i}x{j} v{i}y{j})".encode() for j in range(20))
-    + b")"
+    b"(rec" + b"".join(f" (k{i}x{j} v{i}y{j})".encode() for j in range(20)) + b")"
     for i in range(_COLD_POOL_SIZE)
 ]
 
 
 def test_intern_warm(benchmark: BenchmarkFixture) -> None:
     sexp.parse(WARM_DATA)
-    benchmark(sexp.parse, WARM_DATA)
+    benchmark.pedantic(sexp.parse, args=(WARM_DATA,), iterations=1000, rounds=100)
 
 
 def test_intern_cold(benchmark: BenchmarkFixture) -> None:
@@ -34,4 +32,4 @@ def test_intern_cold(benchmark: BenchmarkFixture) -> None:
         _i += 1
         return result
 
-    benchmark(_parse_unique)
+    benchmark.pedantic(_parse_unique, iterations=1, rounds=100)

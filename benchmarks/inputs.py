@@ -7,14 +7,7 @@ import pytest
 SMALL: Final[bytes] = b"(a b c d e)"
 
 MEDIUM: Final[bytes] = (
-    b"(node"
-    b" (kind widget)"
-    b" (id 42)"
-    b" (pos 12.5 -3.2)"
-    b" (size 100 200)"
-    b" (visible true)"
-    b" (zorder 3)"
-    b")"
+    b"(node (kind widget) (id 42) (pos 12.5 -3.2) (size 100 200) (visible true) (zorder 3))"
 )
 
 LARGE: Final[bytes] = (

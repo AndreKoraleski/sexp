@@ -1,0 +1,93 @@
+# ---------------------------------------------------------------------------
+# Base style
+# LLVM is the closest match to the project's existing conventions.
+# All settings below override or extend that base.
+# ---------------------------------------------------------------------------
+---
+BasedOnStyle: LLVM
+
+
+# ---------------------------------------------------------------------------
+# Indentation
+# ---------------------------------------------------------------------------
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+
+# ---------------------------------------------------------------------------
+# Line length — matches the Python line-length in pyproject.toml.
+# ---------------------------------------------------------------------------
+ColumnLimit: 100
+
+
+# ---------------------------------------------------------------------------
+# Braces — opening brace on the same line as the control statement (K&R).
+# ---------------------------------------------------------------------------
+BreakBeforeBraces: Attach
+
+
+# ---------------------------------------------------------------------------
+# Pointer declarator placement:  int *p  not  int* p
+# ---------------------------------------------------------------------------
+PointerAlignment: Right
+
+
+# ---------------------------------------------------------------------------
+# Alignment — vertically align consecutive assignments and declarations
+# within a block; do not reach across empty lines or comment lines.
+# ---------------------------------------------------------------------------
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+
+# Align backslash-continued macro lines to the leftmost column.
+AlignEscapedNewlines: Left
+# When arguments don't fit on one line, indent them past the opening paren.
+AlignAfterOpenBracket: BlockIndent
+
+
+# ---------------------------------------------------------------------------
+# Argument / parameter packing
+# Never pack onto fewer lines; each argument gets its own line when a break
+# is needed.
+# ---------------------------------------------------------------------------
+BinPackArguments: false
+BinPackParameters: false
+
+
+# ---------------------------------------------------------------------------
+# Short functions — always expand; no one-liner function bodies.
+# ---------------------------------------------------------------------------
+AllowShortFunctionsOnASingleLine: None
+
+
+# ---------------------------------------------------------------------------
+# Includes — preserve hand-ordered #include groups (e.g. own header first).
+# ---------------------------------------------------------------------------
+SortIncludes: Never
+
+
+# ---------------------------------------------------------------------------
+# Comments — reflow long comment blocks to fit ColumnLimit.
+# ---------------------------------------------------------------------------
+ReflowComments: true
+
+
+# ---------------------------------------------------------------------------
+# Blank lines — allow at most two consecutive empty lines.
+# ---------------------------------------------------------------------------
+MaxEmptyLinesToKeep: 2
+
+
+# ---------------------------------------------------------------------------
+# Definitions — insert a blank line between function/struct/enum definitions.
+# ---------------------------------------------------------------------------
+SeparateDefinitionBlocks: Always

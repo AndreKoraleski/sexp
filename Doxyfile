@@ -1,19 +1,44 @@
+# ---------------------------------------------------------------------------
+# Project identity
+# ---------------------------------------------------------------------------
 PROJECT_NAME           = sexp
 PROJECT_BRIEF          = A minimal-allocation S-expression library for Python, backed by a C extension.
 
+# ---------------------------------------------------------------------------
+# Input
+# ---------------------------------------------------------------------------
 INPUT                  = src/
 RECURSIVE              = YES
+# Strip this prefix from file paths shown in the output.
 STRIP_FROM_PATH        = src/
 
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
 OUTPUT_DIRECTORY       = docs/
 
+# ---------------------------------------------------------------------------
+# Parsing
+# ---------------------------------------------------------------------------
+# Tune the parser for C (enum/struct handling, etc.).
 OPTIMIZE_OUTPUT_FOR_C  = YES
+# Treat the first sentence of a /** ... */ block as the brief description.
 JAVADOC_AUTOBRIEF      = YES
+# Only generate pages for symbols that carry an explicit doc comment.
 EXTRACT_ALL            = NO
 
+# ---------------------------------------------------------------------------
+# Warnings
+# Treat missing documentation and all other warnings as errors so they
+# surface the same way as compiler warnings.
+# ---------------------------------------------------------------------------
 WARN_IF_UNDOCUMENTED   = YES
 WARN_AS_ERROR          = YES
 
+# ---------------------------------------------------------------------------
+# Output formats
+# HTML only; LaTeX and Graphviz are not used.
+# ---------------------------------------------------------------------------
 GENERATE_LATEX         = NO
 HAVE_DOT               = NO
 QUIET                  = YES

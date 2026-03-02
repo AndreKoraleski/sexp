@@ -22,8 +22,8 @@ def _dfs_atom_count(root: sexp.SExp) -> int:
 
 
 def test_deep_traversal(benchmark: BenchmarkFixture) -> None:
-    benchmark(_dfs_atom_count, _DEEP_TREE)
+    benchmark.pedantic(_dfs_atom_count, args=(_DEEP_TREE,), iterations=100, rounds=100)
 
 
 def test_wide_traversal(benchmark: BenchmarkFixture) -> None:
-    benchmark(_dfs_atom_count, _WIDE_TREE)
+    benchmark.pedantic(_dfs_atom_count, args=(_WIDE_TREE,), iterations=100, rounds=100)

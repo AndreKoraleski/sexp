@@ -1,22 +1,26 @@
 #include "unity.h"
-#include "arena.h"
 
-void setUp(void) {}
-void tearDown(void) {}
+#include "memory/arena.h"
+
+void setUp(void) {
+}
+
+void tearDown(void) {
+}
 
 static void test_arena_init_default_cap(void) {
     Arena a = arena_init(0);
     TEST_ASSERT_NOT_NULL(a.base);
-    TEST_ASSERT_EQUAL_UINT(ARENA_DEFAULT_CAP, a.cap);
-    TEST_ASSERT_EQUAL_UINT(0, a.pos);
-    TEST_ASSERT_NULL(a.prev);
+    TEST_ASSERT_EQUAL_UINT(ARENA_DEFAULT_CAPACITY, a.capacity);
+    TEST_ASSERT_EQUAL_UINT(0, a.position);
+    TEST_ASSERT_NULL(a.previous_chunk);
     arena_free(&a);
 }
 
 static void test_arena_init_custom_cap(void) {
     Arena a = arena_init(1024);
     TEST_ASSERT_NOT_NULL(a.base);
-    TEST_ASSERT_EQUAL_UINT(1024, a.cap);
+    TEST_ASSERT_EQUAL_UINT(1024, a.capacity);
     arena_free(&a);
 }
 
@@ -29,7 +33,7 @@ static void test_arena_alloc_returns_aligned(void) {
 }
 
 static void test_arena_alloc_sequential(void) {
-    Arena a = arena_init(1024);
+    Arena a  = arena_init(1024);
     void *p1 = arena_alloc(&a, 8);
     void *p2 = arena_alloc(&a, 8);
     TEST_ASSERT_NOT_NULL(p1);
@@ -44,7 +48,7 @@ static void test_arena_alloc_grows(void) {
         void *p = arena_alloc(&a, 16);
         TEST_ASSERT_NOT_NULL(p);
     }
-    TEST_ASSERT_NOT_NULL(a.prev);
+    TEST_ASSERT_NOT_NULL(a.previous_chunk);
     arena_free(&a);
 }
 
@@ -52,19 +56,19 @@ static void test_arena_reset_resets_pos(void) {
     Arena a = arena_init(1024);
     arena_alloc(&a, 64);
     arena_reset(&a);
-    TEST_ASSERT_EQUAL_UINT(0, a.pos);
-    TEST_ASSERT_NULL(a.prev);
+    TEST_ASSERT_EQUAL_UINT(0, a.position);
+    TEST_ASSERT_NULL(a.previous_chunk);
     arena_free(&a);
 }
 
 static void test_arena_reset_reuses_first_chunk(void) {
-    Arena a = arena_init(64);
+    Arena    a          = arena_init(64);
     uint8_t *first_base = a.base;
     for (int i = 0; i < 10; i++)
         arena_alloc(&a, 16);
     arena_reset(&a);
     TEST_ASSERT_EQUAL_PTR(first_base, a.base);
-    TEST_ASSERT_NULL(a.prev);
+    TEST_ASSERT_NULL(a.previous_chunk);
     arena_free(&a);
 }
 
@@ -72,12 +76,12 @@ static void test_arena_free_zeroes_struct(void) {
     Arena a = arena_init(1024);
     arena_free(&a);
     TEST_ASSERT_NULL(a.base);
-    TEST_ASSERT_EQUAL_UINT(0, a.cap);
-    TEST_ASSERT_EQUAL_UINT(0, a.pos);
+    TEST_ASSERT_EQUAL_UINT(0, a.capacity);
+    TEST_ASSERT_EQUAL_UINT(0, a.position);
 }
 
 static void test_arena_alloc_after_reset(void) {
-    Arena a = arena_init(1024);
+    Arena a  = arena_init(1024);
     void *p1 = arena_alloc(&a, 64);
     arena_reset(&a);
     void *p2 = arena_alloc(&a, 64);

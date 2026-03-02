@@ -8,12 +8,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Threads REQUIRED)
 
 add_library(sexp_core STATIC
-    src/arena.c
-    src/intern.c
-    src/tree.c
+    src/memory/arena.c
+    src/memory/intern.c
+    src/core/node.c
+    src/core/tree.c
+    src/parse/tokenizer.c
+    src/parse/parse_stack.c
+    src/parse/parser.c
+    src/serialize/serializer.c
+    src/internal/mutate.c
+    src/internal/clone.c
 )
 
-target_include_directories(sexp_core PUBLIC src/include)
+target_include_directories(sexp_core PUBLIC src)
 target_compile_options(sexp_core PRIVATE -Wall -Wextra -Wpedantic)
 target_link_libraries(sexp_core PUBLIC Threads::Threads)
 

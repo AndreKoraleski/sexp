@@ -1,3 +1,8 @@
+# ---------------------------------------------------------------------------
+# Enabled check categories
+# All checks in each group are enabled, then individual noisy or irrelevant
+# ones are disabled with a leading dash.
+# ---------------------------------------------------------------------------
 Checks: >
   clang-analyzer-*,
   bugprone-*,
@@ -6,14 +11,46 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  # Parameters in C often share a type by design (e.g. size_t a, size_t b).
   -bugprone-easily-swappable-parameters,
+  # Reserved-identifier rules flag common POSIX/system headers; not relevant
+  # for application code.
+  -bugprone-reserved-identifier,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  # The "unsafe buffer" warning fires on every direct memcpy/memset call,
+  # which is unavoidable in a low-level allocator.
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  # Include-cleaner produces false positives with umbrella headers.
   -misc-include-cleaner
 
+# Any active check that fires is treated as a build error.
 WarningsAsErrors: "*"
 
-HeaderFilterRegex: "src/include/.*\\.h$"
+# Only surface diagnostics that originate from project headers, not from
+# system or third-party headers.
+HeaderFilterRegex: "(src|python)/.*\\.h$"
 
+# ---------------------------------------------------------------------------
+# Per-check option overrides
+# ---------------------------------------------------------------------------
 CheckOptions:
+  # cert-err33-c: only flag unchecked returns from the three core allocators.
   - key: cert-err33-c.CheckedFunctions
     value: "malloc;calloc;realloc"
+
+  # readability-function-size: keep functions small and focused.
+  - key: readability-function-size.LineThreshold
+    value: "60"
+  - key: readability-function-size.StatementThreshold
+    value: "40"
+  - key: readability-function-size.BranchThreshold
+    value: "10"
+  - key: readability-function-size.ParameterThreshold
+    value: "5"
+  - key: readability-function-size.NestingThreshold
+    value: "4"
+
+  # readability-function-cognitive-complexity: bound overall complexity.
+  - key: readability-function-cognitive-complexity.Threshold
+    value: "15"
