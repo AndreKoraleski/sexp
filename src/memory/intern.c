@@ -5,24 +5,24 @@
 
 #ifdef _WIN32
 
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
-    typedef SRWLOCK intern_mutex_t;
+typedef SRWLOCK intern_mutex_t;
 
-    #define INTERN_MUTEX_STATIC_INIT SRWLOCK_INIT
-    #define intern_mutex_lock(m)     AcquireSRWLockExclusive(m)
-    #define intern_mutex_unlock(m)   ReleaseSRWLockExclusive(m)
+#define INTERN_MUTEX_STATIC_INIT SRWLOCK_INIT
+#define intern_mutex_lock(m) AcquireSRWLockExclusive(m)
+#define intern_mutex_unlock(m) ReleaseSRWLockExclusive(m)
 
 #else
 
-    #include <pthread.h>
+#include <pthread.h>
 
-    typedef pthread_mutex_t intern_mutex_t;
+typedef pthread_mutex_t intern_mutex_t;
 
-    #define INTERN_MUTEX_STATIC_INIT PTHREAD_MUTEX_INITIALIZER
-    #define intern_mutex_lock(m)     pthread_mutex_lock(m)
-    #define intern_mutex_unlock(m)   pthread_mutex_unlock(m)
+#define INTERN_MUTEX_STATIC_INIT PTHREAD_MUTEX_INITIALIZER
+#define intern_mutex_lock(m) pthread_mutex_lock(m)
+#define intern_mutex_unlock(m) pthread_mutex_unlock(m)
 
 #endif
 

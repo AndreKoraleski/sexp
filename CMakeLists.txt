@@ -20,6 +20,7 @@ add_library(sexp_core STATIC
     src/core/clone.c
 )
 
+set_target_properties(sexp_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(sexp_core PUBLIC src)
 target_compile_options(sexp_core PRIVATE
     $<$<C_COMPILER_ID:MSVC>:/W3>
