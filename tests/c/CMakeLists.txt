@@ -1,7 +1,10 @@
 set(UNITY_SRC ../../third_party/unity/unity.c)
 set(UNITY_INC ../../third_party/unity)
 set(LIB_INC   ../../src)
-set(COMPILE_OPTS -Wall -Wextra -Wpedantic)
+set(COMPILE_OPTS
+    $<$<C_COMPILER_ID:MSVC>:/W3>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall;-Wextra;-Wpedantic>
+)
 
 function(add_sexp_test target source)
     add_executable(${target} ${source} ${UNITY_SRC})
