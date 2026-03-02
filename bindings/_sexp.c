@@ -14,7 +14,7 @@ static PyObject *sexp_parse_func(PyObject *Py_UNUSED(module), PyObject *args) {
     Py_buffer view;
     if (!PyArg_ParseTuple(args, "s*", &view)) {
         return NULL;
-}
+    }
 
     SExpObject *tree_object = PyObject_New(SExpObject, &SExpType);
     if (!tree_object) {

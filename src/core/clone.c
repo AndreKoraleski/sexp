@@ -1,9 +1,9 @@
 #include <stdlib.h>
 
-#include "internal/clone.h"
+#include "core/clone.h"
 
 #include "core/tree.h"
-#include "internal/mutate.h"
+#include "core/mutate.h"
 #include "memory/intern.h"
 
 /**

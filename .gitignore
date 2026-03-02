@@ -14,6 +14,7 @@ dist/
 .venv/
 venv/
 compile_commands.json
+uv.lock
 
 # Coverage
 .coverage
