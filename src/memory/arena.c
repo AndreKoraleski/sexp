@@ -1,16 +1,26 @@
-#include <stdalign.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "memory/arena.h"
 
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+
+    #include <stdalign.h>
+    #define ARENA_MAX_ALIGN alignof(max_align_t)
+
+#else
+
+    #define ARENA_MAX_ALIGN __alignof(max_align_t)
+
+#endif
 
 /**
- * @brief Round n up to the next multiple of max_align_t, ensuring all returned pointers are
- * suitably aligned for any type.
+ * @brief Round n up to the next multiple of the maximum fundamental
+ * alignment, ensuring all returned pointers are suitably aligned for any
+ * type.
  */
-#define ALIGN_UP(n) (((n) + alignof(max_align_t) - 1) & ~(alignof(max_align_t) - 1))
+#define ALIGN_UP(n) (((n) + ARENA_MAX_ALIGN - 1) & ~(ARENA_MAX_ALIGN - 1))
 
 Arena arena_init(size_t capacity) {
     Arena arena = {0};

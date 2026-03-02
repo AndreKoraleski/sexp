@@ -2,7 +2,29 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+
+#ifdef _WIN32
+
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+
+    typedef SRWLOCK intern_mutex_t;
+
+    #define INTERN_MUTEX_STATIC_INIT SRWLOCK_INIT
+    #define intern_mutex_lock(m)     AcquireSRWLockExclusive(m)
+    #define intern_mutex_unlock(m)   ReleaseSRWLockExclusive(m)
+
+#else
+
+    #include <pthread.h>
+
+    typedef pthread_mutex_t intern_mutex_t;
+
+    #define INTERN_MUTEX_STATIC_INIT PTHREAD_MUTEX_INITIALIZER
+    #define intern_mutex_lock(m)     pthread_mutex_lock(m)
+    #define intern_mutex_unlock(m)   pthread_mutex_unlock(m)
+
+#endif
 
 #include "memory/arena.h"
 #include "memory/intern.h"
@@ -15,9 +37,9 @@
 static const uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
 static const uint64_t FNV_PRIME        = 1099511628211ULL;
 
-static InternPool      global_pool;
-static int             global_pool_initialized = 0;
-static pthread_mutex_t pool_lock               = PTHREAD_MUTEX_INITIALIZER;
+static InternPool     global_pool;
+static int            global_pool_initialized = 0;
+static intern_mutex_t pool_lock               = INTERN_MUTEX_STATIC_INIT;
 
 /**
  * @brief Compute the FNV-1a hash of the given string data.
@@ -227,15 +249,15 @@ static AtomId intern_assign_id(const char *string, size_t length, uint64_t hash_
 }
 
 const char *intern_lookup(AtomId atom_id, size_t *length) {
-    pthread_mutex_lock(&pool_lock);
+    intern_mutex_lock(&pool_lock);
     if (!global_pool_initialized || atom_id == 0 || atom_id > global_pool.strings_capacity) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return NULL;
     }
 
     const char *string = global_pool.strings[atom_id - 1];
     if (string == NULL) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return NULL;
     }
 
@@ -243,21 +265,21 @@ const char *intern_lookup(AtomId atom_id, size_t *length) {
         *length = global_pool.string_lengths[atom_id - 1];
     }
 
-    pthread_mutex_unlock(&pool_lock);
+    intern_mutex_unlock(&pool_lock);
     return string;
 }
 
 int intern_init(void) {
-    pthread_mutex_lock(&pool_lock);
+    intern_mutex_lock(&pool_lock);
     if (global_pool_initialized) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return 0;
     }
 
     global_pool.arena = arena_init(ARENA_DEFAULT_CAPACITY);
 
     if (global_pool.arena.base == NULL) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return -1;
     }
 
@@ -268,7 +290,7 @@ int intern_init(void) {
     if (global_pool.table.hashes == NULL || global_pool.table.atom_ids == NULL) {
         free(global_pool.table.hashes);
         free(global_pool.table.atom_ids);
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return -1;
     }
 
@@ -282,14 +304,14 @@ int intern_init(void) {
     global_pool.strings_capacity = 0;
     global_pool.reference_count  = 0;
     global_pool_initialized      = 1;
-    pthread_mutex_unlock(&pool_lock);
+    intern_mutex_unlock(&pool_lock);
     return 0;
 }
 
 AtomId intern_string(const char *string, size_t length) {
-    pthread_mutex_lock(&pool_lock);
+    intern_mutex_lock(&pool_lock);
     if (!global_pool_initialized) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return 0;
     }
 
@@ -297,34 +319,34 @@ AtomId intern_string(const char *string, size_t length) {
 
     AtomId atom_id = intern_lookup_hash(hash_value, string, length);
     if (atom_id != 0) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return atom_id;
     }
 
     if (global_pool.table.count >= global_pool.table.capacity / INTERN_TABLE_LOAD_DENOMINATOR) {
         if (table_grow() != 0) {
-            pthread_mutex_unlock(&pool_lock);
+            intern_mutex_unlock(&pool_lock);
             return 0;
         }
     }
 
     atom_id = intern_assign_id(string, length, hash_value);
-    pthread_mutex_unlock(&pool_lock);
+    intern_mutex_unlock(&pool_lock);
     return atom_id;
 }
 
 void intern_retain(void) {
-    pthread_mutex_lock(&pool_lock);
+    intern_mutex_lock(&pool_lock);
     if (global_pool_initialized) {
         global_pool.reference_count++;
     }
-    pthread_mutex_unlock(&pool_lock);
+    intern_mutex_unlock(&pool_lock);
 }
 
 void intern_release(void) {
-    pthread_mutex_lock(&pool_lock);
+    intern_mutex_lock(&pool_lock);
     if (!global_pool_initialized) {
-        pthread_mutex_unlock(&pool_lock);
+        intern_mutex_unlock(&pool_lock);
         return;
     }
 
@@ -341,5 +363,5 @@ void intern_release(void) {
         global_pool             = (InternPool){0};
         global_pool_initialized = 0;
     }
-    pthread_mutex_unlock(&pool_lock);
+    intern_mutex_unlock(&pool_lock);
 }
