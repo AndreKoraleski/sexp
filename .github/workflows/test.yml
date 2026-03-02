@@ -1,0 +1,40 @@
+# Runs the unit-test suite and a benchmark smoke-check across all supported
+# Python versions and operating systems.
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} • ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package and test dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-benchmark pytest-cov
+          pip install -e . --no-build-isolation
+
+      - name: Run unit tests
+        run: pytest tests/python -x -q
+
+      # Validate that all benchmark code executes without errors.
+      # Timing is not collected; use the full benchmark suite locally.
+      - name: Run benchmarks (smoke check)
+        run: pytest benchmarks -x -q --benchmark-disable
