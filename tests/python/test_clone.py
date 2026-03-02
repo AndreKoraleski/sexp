@@ -46,3 +46,46 @@ def test_clone_is_separately_modifiable():
     cloned[0].value = "Z"
     assert repr(t) == "(a b c)"
     assert repr(cloned) == "(Z b c)"
+
+
+# --- SExp root clone ---
+
+
+def test_sexp_clone_returns_sexp():
+    t = sexp.parse("(a b c)")
+    c = t.clone()
+    assert isinstance(c, sexp.SExp)
+
+
+def test_sexp_clone_repr_matches():
+    t = sexp.parse("(a (b c) d)")
+    c = t.clone()
+    assert repr(c) == repr(t)
+
+
+def test_sexp_clone_is_independent():
+    t = sexp.parse("(a b c)")
+    c = t.clone()
+    c[0].value = "Z"
+    assert repr(t) == "(a b c)"
+    assert repr(c) == "(Z b c)"
+
+
+def test_sexp_clone_does_not_modify_original():
+    t = sexp.parse("(a (b c) d)")
+    _ = t.clone()
+    assert repr(t) == "(a (b c) d)"
+
+
+def test_sexp_clone_empty_tree():
+    t = sexp.parse("()")
+    c = t.clone()
+    assert isinstance(c, sexp.SExp)
+    assert len(c) == 0
+
+
+def test_sexp_clone_deep_structure():
+    src = "(a (b (c d)) e)"
+    t = sexp.parse(src)
+    c = t.clone()
+    assert repr(c) == src

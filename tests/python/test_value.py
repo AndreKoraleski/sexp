@@ -36,3 +36,18 @@ def test_node_value_set_to_empty_string():
     t = sexp.parse("(a b)")
     t[0].value = "hello"
     assert t[0].value == "hello"
+
+
+# --- SExp root ---
+
+
+def test_sexp_value_get_raises():
+    t = sexp.parse("(a b)")
+    with pytest.raises(TypeError):
+        _ = t.value
+
+
+def test_sexp_value_get_raises_on_empty_tree():
+    t = sexp.parse("()")
+    with pytest.raises(TypeError):
+        _ = t.value

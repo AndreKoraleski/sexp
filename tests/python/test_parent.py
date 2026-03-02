@@ -29,3 +29,21 @@ def test_parent_of_direct_child_matches_repr():
 def test_parent_is_none_for_root_nodes():
     t = sexp.parse("(a b)")
     assert t[0].parent.parent is None
+
+
+# --- SExp root ---
+
+
+def test_sexp_parent_is_none():
+    t = sexp.parse("(a b c)")
+    assert t.parent is None
+
+
+def test_sexp_parent_none_on_empty_tree():
+    t = sexp.parse("()")
+    assert t.parent is None
+
+
+def test_sexp_parent_is_none_type():
+    t = sexp.parse("(x)")
+    assert type(t.parent) is type(None)

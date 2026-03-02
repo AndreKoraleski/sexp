@@ -1,3 +1,5 @@
+import pytest
+
 import sexp
 
 
@@ -29,3 +31,11 @@ def test_len_empty_parse():
 def test_node_len():
     t = sexp.parse("(a (b c d) e)")
     assert len(t[1]) == 3
+
+
+def test_atom_node_len_raises():
+    t = sexp.parse("(a b c)")
+    with pytest.raises(TypeError):
+        len(t[0])
+    with pytest.raises(TypeError):
+        len(t[1])

@@ -42,3 +42,20 @@ def test_remove_preserves_siblings():
     t[2].remove()
     assert repr(t) == "(a b d)"
     assert len(t) == 3
+
+
+# --- SExp root ---
+
+
+def test_sexp_root_not_removable():
+    import pytest
+
+    t = sexp.parse("(a b c)")
+    with pytest.raises(AttributeError):
+        t.remove()  # type: ignore[attr-defined]
+
+
+def test_sexp_root_has_no_remove_method():
+    t = sexp.parse("(a b c)")
+    assert not hasattr(t, "remove")
+    assert repr(t) == "(a b c)"

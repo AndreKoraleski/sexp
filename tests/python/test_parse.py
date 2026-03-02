@@ -19,12 +19,12 @@ def test_parse_bytearray():
 
 
 def test_parse_invalid_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(sexp.ParseError):
         sexp.parse("(unclosed")
 
 
 def test_parse_stray_close_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(sexp.ParseError):
         sexp.parse(")")
 
 

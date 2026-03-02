@@ -56,3 +56,34 @@ def test_insert_after_preserves_order():
     n = t.new_atom("x")
     t[0].parent.insert_after(t[1], n)
     assert repr(t) == "(a b x c)"
+
+
+# --- SExp root ---
+
+
+def test_sexp_insert_after_sibling_via_root():
+    t = sexp.parse("(a b c)")
+    n = t.new_atom("x")
+    t.insert_after(t[0], n)
+    assert repr(t) == "(a x b c)"
+
+
+def test_sexp_insert_after_last_via_root():
+    t = sexp.parse("(a b)")
+    n = t.new_atom("z")
+    t.insert_after(t[1], n)
+    assert repr(t) == "(a b z)"
+
+
+def test_sexp_insert_after_none_is_prepend_via_root():
+    t = sexp.parse("(a b)")
+    n = t.new_atom("x")
+    t.insert_after(None, n)
+    assert repr(t) == "(x a b)"
+
+
+def test_sexp_insert_after_wrong_tree_raises():
+    t1 = sexp.parse("(a b)")
+    t2 = sexp.parse("(c d)")
+    with pytest.raises(ValueError):
+        t1.insert_after(None, t2[0])
