@@ -164,7 +164,7 @@ static PyObject *sexpnode_tail(SExpNodeObject *self, void *Py_UNUSED(closure)) {
 }
 
 static PyObject *sexpnode_value_get(SExpNodeObject *self, void *Py_UNUSED(closure)) {
-    SExp *tree = &self->owner->tree;
+    const SExp *tree = &self->owner->tree;
     if (sexp_kind(tree, self->index) != NODE_ATOM) {
         PyErr_SetString(PyExc_TypeError, "node is not an atom");
         return NULL;
@@ -243,7 +243,7 @@ static PyObject *sexpnode_prepend(SExpNodeObject *self, PyObject *arg) {
         PyErr_SetString(PyExc_TypeError, "argument must be a SExpNode");
         return NULL;
     }
-    SExpNodeObject *child = (SExpNodeObject *)arg;
+    const SExpNodeObject *child = (const SExpNodeObject *)arg;
     if (child->owner != self->owner) {
         PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
         return NULL;
@@ -257,7 +257,7 @@ static PyObject *sexpnode_append(SExpNodeObject *self, PyObject *arg) {
         PyErr_SetString(PyExc_TypeError, "argument must be a SExpNode");
         return NULL;
     }
-    SExpNodeObject *child = (SExpNodeObject *)arg;
+    const SExpNodeObject *child = (const SExpNodeObject *)arg;
     if (child->owner != self->owner) {
         PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
         return NULL;
@@ -286,7 +286,7 @@ static PyObject *sexpnode_insert_after(SExpNodeObject *self, PyObject *args) {
         return NULL;
     }
 
-    SExpNodeObject *child = (SExpNodeObject *)child_object;
+    const SExpNodeObject *child = (const SExpNodeObject *)child_object;
     if (child->owner != self->owner) {
         PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
         return NULL;
@@ -298,7 +298,7 @@ static PyObject *sexpnode_insert_after(SExpNodeObject *self, PyObject *args) {
             return NULL;
         }
 
-        SExpNodeObject *after = (SExpNodeObject *)after_object;
+        const SExpNodeObject *after = (const SExpNodeObject *)after_object;
         if (after->owner != self->owner) {
             PyErr_SetString(PyExc_ValueError, "nodes must belong to the same tree");
             return NULL;
