@@ -28,7 +28,7 @@ static void test_arena_alloc_returns_aligned(void) {
     Arena a = arena_init(1024);
     void *p = arena_alloc(&a, 1);
     TEST_ASSERT_NOT_NULL(p);
-    TEST_ASSERT_EQUAL_UINT(0, (uintptr_t)p % _Alignof(max_align_t));
+    TEST_ASSERT_EQUAL_UINT(0, (uintptr_t)p % ARENA_MAX_ALIGN);
     arena_free(&a);
 }
 

@@ -4,19 +4,6 @@
 
 #include "memory/arena.h"
 
-#if defined(_MSC_VER)
-    #define ARENA_MAX_ALIGN 16u
-
-#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-    #include <stdalign.h>
-    #define ARENA_MAX_ALIGN alignof(max_align_t)
-
-#else
-
-    #define ARENA_MAX_ALIGN __alignof(max_align_t)
-
-#endif
-
 /**
  * @brief Round n up to the next multiple of the maximum fundamental
  * alignment, ensuring all returned pointers are suitably aligned for any
