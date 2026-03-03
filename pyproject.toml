@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sexp"
-version = "1.0.1"
+version = "1.0.2"
 description = "A minimal-allocation S-expression library for Python, backed by a C extension."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
     "Topic :: Text Processing",
@@ -102,7 +103,7 @@ exclude_lines = [
 # -----------------------------------------------------------------------------
 
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-* cp313-*"
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip  = "pp* cp313t-*"
 
 test-requires = ["pytest", "pytest-benchmark", "pytest-cov"]
