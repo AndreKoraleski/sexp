@@ -20,8 +20,5 @@ uv.lock
 .coverage
 htmlcov/
 
-# Docs
-docs/
-
 # IDE
 .vscode/
