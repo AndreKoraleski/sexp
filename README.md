@@ -44,12 +44,7 @@ assert repr(parse(src)) == src
 | Path | Contents |
 |------|----------|
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
-| [examples/01_query.py](examples/01_query.py) | Navigate and read a structured document |
-| [examples/02_transform.py](examples/02_transform.py) | Walk and mutate a tree |
-| [examples/03_build.py](examples/03_build.py) | Construct trees programmatically |
-| [examples/04_split_document.py](examples/04_split_document.py) | Split a document with `extract()` |
-| [examples/05_evaluator.py](examples/05_evaluator.py) | Mini Lisp evaluator using `sexp` as an AST |
-| [docs/api.md](docs/api.md) | Full API reference |
+| [docs/api.md](docs/api.md) | Full API reference, including recipes for common patterns |
 | [docs/how-it-works.md](docs/how-it-works.md) | Architecture overview: node array, arena, intern pool, parser |
 | [docs/internals/](docs/internals/README.md) | Internals wiki: node array, arena, intern pool, parser, mutation |
 
