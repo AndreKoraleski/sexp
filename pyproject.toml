@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "sexp"
-version = "0.3.0"
+version = "1.0.0"
 description = "A minimal-allocation S-expression library for Python, backed by a C extension."
 readme = "README.md"
 requires-python = ">=3.10"

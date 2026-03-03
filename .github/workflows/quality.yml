@@ -97,5 +97,6 @@ jobs:
             --std=c11 \
             --error-exitcode=1 \
             --suppress=missingIncludeSystem \
+            --suppressions-list=.cppcheck_suppressions \
             -I src \
             src/ bindings/

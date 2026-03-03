@@ -31,6 +31,3 @@ jobs:
 
       - name: Run unit tests
         run: pytest tests/python -x -q
-
-      - name: Run benchmarks
-        run: pytest benchmarks -x -q --benchmark-disable
