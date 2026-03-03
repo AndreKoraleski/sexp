@@ -43,6 +43,7 @@ assert repr(parse(src)) == src
 
 | Path | Contents |
 |------|----------|
+| [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [examples/01_query.py](examples/01_query.py) | Navigate and read a structured document |
 | [examples/02_transform.py](examples/02_transform.py) | Walk and mutate a tree |
 | [examples/03_build.py](examples/03_build.py) | Construct trees programmatically |
