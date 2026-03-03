@@ -14,12 +14,12 @@ views — no copying, no per-node heap allocation.
 
 ## Installation
 
-```
+```bash
 pip install sexp
 ```
 
-Requires Python 3.10+. Wheels are provided for Linux (x86\_64 + aarch64),
-macOS (x86\_64 + arm64), and Windows (AMD64).
+Requires **Python 3.10+**. Wheels are provided for **Linux** (`x86_64` + `aarch64`),
+**macOS** (`x86_64` + `arm64`), and **Windows** (`AMD64`).
 
 ## Quick start
 
