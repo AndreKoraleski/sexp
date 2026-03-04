@@ -49,9 +49,10 @@ typedef enum SExpParseErrorCode {
  * The global intern pool is retained on creation and released on free.
  */
 typedef struct SExp {
-    Node             *nodes;        /**< Flat array of all nodes, heap-allocated. */
-    uint32_t          count;        /**< Number of nodes currently in the tree. */
-    uint32_t          capacity;     /**< Allocated capacity of the node array in elements. */
-    uint8_t           valid;        /**< Non-zero if the tree was successfully parsed. */
-    SExpParseErrorCode parse_error; /**< Reason for failure; zero on success or unspecified error. */
+    Node    *nodes;    /**< Flat array of all nodes, heap-allocated. */
+    uint32_t count;    /**< Number of nodes currently in the tree. */
+    uint32_t capacity; /**< Allocated capacity of the node array in elements. */
+    uint8_t  valid;    /**< Non-zero if the tree was successfully parsed. */
+    SExpParseErrorCode
+        parse_error; /**< Reason for failure; zero on success or unspecified error. */
 } SExp;

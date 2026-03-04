@@ -88,6 +88,23 @@ static int parse_dispatch_token(SExp *tree, ParseStack *stack, Token token) {
     return 0;
 }
 
+/**
+ * @brief Returns non-zero if the tree contains more than one root node (i.e. more than one node
+ * with no parent), indicating that the input had multiple top-level forms.
+ *
+ * @param tree Pointer to the partially or fully built tree.
+ * @return int Non-zero if there are multiple root nodes, zero otherwise.
+ */
+static int has_multiple_roots(const SExp *tree) {
+    uint32_t root_count = 0;
+    for (uint32_t i = 0; i < tree->count; i++) {
+        if (tree->nodes[i].parent == SEXP_NULL_INDEX) {
+            root_count++;
+        }
+    }
+    return root_count > 1;
+}
+
 SExp sexp_parse(const char *source, size_t source_length) {
     SExp tree = {0};
 
@@ -121,17 +138,9 @@ SExp sexp_parse(const char *source, size_t source_length) {
     }
 
     /* Multiple top-level forms - an S-expression is a single form by definition. */
-    {
-        uint32_t root_count = 0;
-        for (uint32_t i = 0; i < tree.count; i++) {
-            if (tree.nodes[i].parent == SEXP_NULL_INDEX) {
-                root_count++;
-            }
-        }
-        if (root_count > 1) {
-            tree.parse_error = SEXP_PARSE_ERROR_MULTIPLE_ROOTS;
-            goto error;
-        }
+    if (has_multiple_roots(&tree)) {
+        tree.parse_error = SEXP_PARSE_ERROR_MULTIPLE_ROOTS;
+        goto error;
     }
 
     parse_stack_free(&stack);

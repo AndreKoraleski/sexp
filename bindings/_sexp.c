@@ -31,18 +31,18 @@ static PyObject *sexp_parse_func(PyObject *Py_UNUSED(module), PyObject *args) {
     if (!tree_object->tree.valid) {
         const char *message;
         switch (tree_object->tree.parse_error) {
-            case SEXP_PARSE_ERROR_UNCLOSED:
-                message = "unclosed parenthesis";
-                break;
-            case SEXP_PARSE_ERROR_STRAY_CLOSE:
-                message = "stray closing parenthesis";
-                break;
-            case SEXP_PARSE_ERROR_MULTIPLE_ROOTS:
-                message = "multiple top-level forms: wrap input in '(...)' to parse as a sequence";
-                break;
-            default:
-                message = "failed to parse S-expression";
-                break;
+        case SEXP_PARSE_ERROR_UNCLOSED:
+            message = "unclosed parenthesis";
+            break;
+        case SEXP_PARSE_ERROR_STRAY_CLOSE:
+            message = "stray closing parenthesis";
+            break;
+        case SEXP_PARSE_ERROR_MULTIPLE_ROOTS:
+            message = "multiple top-level forms: wrap input in '(...)' to parse as a sequence";
+            break;
+        default:
+            message = "failed to parse S-expression";
+            break;
         }
         Py_DECREF(tree_object);
         PyErr_SetString(SExpParseError, message);
