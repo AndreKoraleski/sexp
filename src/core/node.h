@@ -33,14 +33,25 @@ typedef struct Node {
 } Node;
 
 /**
+ * @brief Reason code stored in a failed SExp returned by sexp_parse.
+ */
+typedef enum SExpParseErrorCode {
+    SEXP_PARSE_ERROR_NONE           = 0, /**< No error, or unspecified internal failure. */
+    SEXP_PARSE_ERROR_UNCLOSED       = 1, /**< Input has an unclosed parenthesis. */
+    SEXP_PARSE_ERROR_STRAY_CLOSE    = 2, /**< Input has a stray closing parenthesis. */
+    SEXP_PARSE_ERROR_MULTIPLE_ROOTS = 3, /**< Input contains more than one top-level form. */
+} SExpParseErrorCode;
+
+/**
  * @brief A parsed S-expression tree.
  *
  * Nodes are stored in a flat array indexed from zero. Node memory is heap-allocated via realloc.
  * The global intern pool is retained on creation and released on free.
  */
 typedef struct SExp {
-    Node    *nodes;    /**< Flat array of all nodes, heap-allocated. */
-    uint32_t count;    /**< Number of nodes currently in the tree. */
-    uint32_t capacity; /**< Allocated capacity of the node array in elements. */
-    uint8_t  valid;    /**< Non-zero if the tree was successfully parsed. */
+    Node             *nodes;        /**< Flat array of all nodes, heap-allocated. */
+    uint32_t          count;        /**< Number of nodes currently in the tree. */
+    uint32_t          capacity;     /**< Allocated capacity of the node array in elements. */
+    uint8_t           valid;        /**< Non-zero if the tree was successfully parsed. */
+    SExpParseErrorCode parse_error; /**< Reason for failure; zero on success or unspecified error. */
 } SExp;

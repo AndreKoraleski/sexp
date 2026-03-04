@@ -107,12 +107,16 @@ SExp sexp_parse(const char *source, size_t source_length) {
     Token     token;
     while ((token = next_token(&tokenizer)).kind != TOKEN_END) {
         if (parse_dispatch_token(&tree, &stack, token) != 0) {
+            if (token.kind == TOKEN_RIGHT_PARENTHESIS) {
+                tree.parse_error = SEXP_PARSE_ERROR_STRAY_CLOSE;
+            }
             goto error;
         }
     }
 
     /* Unclosed parenthesis - the input is malformed. */
     if (stack.top > 0) {
+        tree.parse_error = SEXP_PARSE_ERROR_UNCLOSED;
         goto error;
     }
 
@@ -125,6 +129,7 @@ SExp sexp_parse(const char *source, size_t source_length) {
             }
         }
         if (root_count > 1) {
+            tree.parse_error = SEXP_PARSE_ERROR_MULTIPLE_ROOTS;
             goto error;
         }
     }
@@ -137,5 +142,5 @@ error:
     free(tree.nodes); /* Discard the partially built node array. */
     parse_stack_free(&stack);
     intern_release();
-    return (SExp){0};
+    return (SExp){.parse_error = tree.parse_error};
 }
