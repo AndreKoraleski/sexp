@@ -29,3 +29,13 @@ def test_parse_error_message():
 
 def test_parse_error_importable_directly():
     from sexp import ParseError  # noqa: F401
+
+
+def test_parse_error_on_multiple_top_level_list_forms():
+    with pytest.raises(sexp.ParseError):
+        sexp.parse("(a 1)(b 2)")
+
+
+def test_parse_error_on_multiple_top_level_atoms():
+    with pytest.raises(sexp.ParseError):
+        sexp.parse("a b")

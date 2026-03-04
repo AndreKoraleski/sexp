@@ -99,6 +99,16 @@ static void test_parse_stray_close_paren(void) {
     TEST_ASSERT_NULL(tree.nodes);
 }
 
+static void test_parse_multiple_top_level_forms(void) {
+    SExp tree = sexp_parse("(a 1)(b 2)", 10);
+    TEST_ASSERT_EQUAL_UINT(0, tree.count);
+    TEST_ASSERT_NULL(tree.nodes);
+
+    SExp tree2 = sexp_parse("a b", 3);
+    TEST_ASSERT_EQUAL_UINT(0, tree2.count);
+    TEST_ASSERT_NULL(tree2.nodes);
+}
+
 void run_parse_tests(void) {
     RUN_TEST(test_parse_empty_input);
     RUN_TEST(test_parse_single_atom);
@@ -107,6 +117,7 @@ void run_parse_tests(void) {
     RUN_TEST(test_parse_nested_list);
     RUN_TEST(test_parse_unclosed_paren);
     RUN_TEST(test_parse_stray_close_paren);
+    RUN_TEST(test_parse_multiple_top_level_forms);
 }
 
 int main(void) {

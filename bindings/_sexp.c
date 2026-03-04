@@ -42,7 +42,16 @@ static PyMethodDef module_methods[] = {
      METH_VARARGS,
      "parse(source) -> SExp\n"
      "\n"
-     "Parse an S-expression from a str, bytes, or bytearray."},
+     "Parse an S-expression from a str, bytes, or bytearray.\n"
+     "\n"
+     "Raises ParseError if the input is malformed: unclosed parenthesis,\n"
+     "stray closing parenthesis, or more than one top-level form.\n"
+     "\n"
+     "An S-expression is a single form. To handle a sequence of multiple\n"
+     "forms (e.g. b'(a 1)(b 2)'), wrap the input in outer parentheses:\n"
+     "\n"
+     "    tree = parse(b'(' + source + b')')\n"
+     "    for form in tree: ..."},
     {NULL}
 };
 

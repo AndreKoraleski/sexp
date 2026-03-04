@@ -11,8 +11,18 @@ def parse(source: str | bytes | bytearray) -> SExp: ...
 Parse an S-expression and return the tree.
 
 - `source` may be a `str`, `bytes`, or `bytearray`.
-- Raises `ValueError` on malformed input (unclosed parenthesis, stray `)`).
+- Raises `ParseError` on malformed input: unclosed parenthesis, stray `)`,
+  or **more than one top-level form**.
 - An empty string returns an empty tree (`len == 0`).
+
+An S-expression is a single form. To parse a sequence of multiple forms
+(e.g. `b"(a 1)(b 2)"`), wrap the input in an outer list first:
+
+```python
+tree = parse(b"(" + source + b")")
+for form in tree:
+    ...
+```
 
 ---
 

@@ -116,6 +116,19 @@ SExp sexp_parse(const char *source, size_t source_length) {
         goto error;
     }
 
+    /* Multiple top-level forms - an S-expression is a single form by definition. */
+    {
+        uint32_t root_count = 0;
+        for (uint32_t i = 0; i < tree.count; i++) {
+            if (tree.nodes[i].parent == SEXP_NULL_INDEX) {
+                root_count++;
+            }
+        }
+        if (root_count > 1) {
+            goto error;
+        }
+    }
+
     parse_stack_free(&stack);
     tree.valid = 1;
     return tree;

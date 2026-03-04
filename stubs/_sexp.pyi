@@ -196,8 +196,18 @@ def parse(source: str | bytes | bytearray) -> SExp:
     """Parse an S-expression from *source* and return the tree.
 
     Raises:
-        ParseError: If the input is malformed
-                    (unclosed parenthesis, stray closing parenthesis, etc.).
+        ParseError: If the input is malformed (unclosed parenthesis, stray
+                    closing parenthesis, or more than one top-level form).
+
+    Note:
+        An S-expression is a **single** form. Input containing multiple
+        top-level forms (e.g. ``b"(a 1)(b 2)"``) raises :exc:`ParseError`.
+        Wrap the input in outer parentheses first if you need to handle
+        multiple forms as a sequence::
+
+            tree = parse(b"(" + source + b")")
+            for form in tree:
+                ...
 
     """
     ...
