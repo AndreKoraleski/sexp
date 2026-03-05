@@ -47,9 +47,11 @@ impl Iterator for DepthFirstIter<'_> {
 
     fn next(&mut self) -> Option<NodeId> {
         let current = self.stack.pop()?;
-        let children: Vec<NodeId> = ChildIter::new(self.tree, current).collect();
-        for child in children.into_iter().rev() {
-            self.stack.push(child);
+        let mut cursor = self.tree.last_child(current);
+        while let Some(child_id) = cursor {
+            let prev = self.tree.prev_sibling(child_id);
+            self.stack.push(child_id);
+            cursor = prev;
         }
         Some(current)
     }

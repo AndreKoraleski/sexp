@@ -4,12 +4,14 @@ use crate::memory::{atom::Atom, slab::Key};
 pub type NodeId = Key<Node>;
 
 /// The content of a node: either a leaf atom or an interior list.
+#[derive(Clone)]
 pub enum NodeType {
     Atom(Atom),
     List,
 }
 
 /// A single node stored inside a [`crate::core::tree::Tree`].
+#[derive(Clone)]
 pub struct Node {
     pub(crate) kind: NodeType,
     pub(crate) parent: Option<NodeId>,
@@ -17,6 +19,7 @@ pub struct Node {
     pub(crate) last_child: Option<NodeId>,
     pub(crate) previous_sibling: Option<NodeId>,
     pub(crate) next_sibling: Option<NodeId>,
+    pub(crate) child_count: u32,
 }
 
 impl Node {
@@ -29,6 +32,7 @@ impl Node {
             last_child: None,
             previous_sibling: None,
             next_sibling: None,
+            child_count: 0,
         }
     }
 
@@ -41,6 +45,7 @@ impl Node {
             last_child: None,
             previous_sibling: None,
             next_sibling: None,
+            child_count: 0,
         }
     }
 

@@ -1,4 +1,4 @@
-.PHONY: help dev build test lint format format-check typecheck pre-commit pre-commit-install clean
+.PHONY: help dev build test lint format format-check typecheck bench bench-save bench-ci pre-commit pre-commit-install clean
 
 # --- Help ---
 help:
@@ -11,6 +11,9 @@ help:
 	@echo "  test               Run Python tests"
 	@echo "  test-rs            Run Rust unit tests"
 	@echo "  test-all           Run all tests"
+	@echo "  bench              Run benchmarks"
+	@echo "  bench-save         Run benchmarks and save as baseline"
+	@echo "  bench-ci           Compare against baseline (fail on >10% regression)"
 	@echo "  lint               Lint Python (ruff) and Rust (clippy)"
 	@echo "  format             Auto-format Python and Rust"
 	@echo "  format-check       Check formatting without modifying files"
@@ -41,6 +44,23 @@ test-rs:
 
 ## Run all tests
 test-all: test test-rs
+
+_BENCH_FLAGS := --benchmark-only --benchmark-disable-gc --benchmark-storage=benchmarks/.results
+
+## Run benchmarks
+bench:
+	pytest benchmarks/ -q $(_BENCH_FLAGS)
+
+## Save current results as a named baseline
+bench-save:
+	pytest benchmarks/ -q $(_BENCH_FLAGS) --benchmark-autosave
+
+## Compare against latest saved baseline (fail on >10% mean regression)
+bench-ci:
+	@if [ -z "$$(ls benchmarks/.results/ 2>/dev/null)" ]; then \
+		echo "No baseline found. Run 'make bench-save' first."; exit 1; \
+	fi
+	pytest benchmarks/ -q $(_BENCH_FLAGS) --benchmark-compare --benchmark-compare-fail=mean:10%
 
 # --- Lint ---
 

@@ -1,4 +1,4 @@
-use super::{iter::ChildIter, node::NodeId, tree::Tree};
+use super::{node::NodeId, tree::Tree};
 
 /// Appends `child` as the last child of `parent`.
 ///
@@ -23,6 +23,7 @@ pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
         None => tree.nodes[parent].first_child = Some(child),
     }
     tree.nodes[parent].last_child = Some(child);
+    tree.nodes[parent].child_count += 1;
 }
 
 /// Inserts `child` as the first child of `parent`.
@@ -47,6 +48,7 @@ pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
         None => tree.nodes[parent].last_child = Some(child),
     }
     tree.nodes[parent].first_child = Some(child);
+    tree.nodes[parent].child_count += 1;
 }
 
 /// Inserts `child` immediately after `after` within the same parent.
@@ -77,6 +79,7 @@ pub fn insert_after(tree: &mut Tree, parent: NodeId, after: Option<NodeId>, chil
                 Some(next_node) => tree.nodes[next_node].previous_sibling = Some(child),
                 None => tree.nodes[parent].last_child = Some(child),
             }
+            tree.nodes[parent].child_count += 1;
         }
     }
 }
@@ -111,6 +114,9 @@ fn unlink(tree: &mut Tree, node: NodeId) {
         tree.nodes[parent_node].last_child = previous;
     }
 
+    if let Some(parent_node) = parent {
+        tree.nodes[parent_node].child_count -= 1;
+    }
     tree.nodes[node].parent = None;
     tree.nodes[node].previous_sibling = None;
     tree.nodes[node].next_sibling = None;
@@ -119,16 +125,14 @@ fn unlink(tree: &mut Tree, node: NodeId) {
 /// Removes `node` and all its descendants from the slab using an explicit stack.
 fn drop_subtree(tree: &mut Tree, node: NodeId) {
     let mut stack = vec![node];
-    let mut pre_order: Vec<NodeId> = Vec::new();
     while let Some(current) = stack.pop() {
-        pre_order.push(current);
-        let children: Vec<NodeId> = ChildIter::new(tree, current).collect();
-        for child in children.into_iter().rev() {
-            stack.push(child);
+        let mut cursor = tree.last_child(current);
+        while let Some(child_id) = cursor {
+            let prev = tree.prev_sibling(child_id);
+            stack.push(child_id);
+            cursor = prev;
         }
-    }
-    for n in pre_order.into_iter().rev() {
-        tree.nodes.remove(n);
+        tree.nodes.remove(current);
     }
 }
 

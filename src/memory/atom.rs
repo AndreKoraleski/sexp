@@ -4,21 +4,36 @@ use std::fmt;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Atom(AtomInner);
 
+const INLINE_CAP: usize = 15;
+
 // Inner representation is sealed.
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum AtomInner {
+    Inline { len: u8, buffer: [u8; INLINE_CAP] },
     Owned(Box<str>),
 }
 
 impl Atom {
     /// Creates an atom from a string slice.
     pub fn new(value: &str) -> Self {
-        Self(AtomInner::Owned(value.into()))
+        if value.len() <= INLINE_CAP {
+            let mut buffer = [0u8; INLINE_CAP];
+            buffer[..value.len()].copy_from_slice(value.as_bytes());
+            Self(AtomInner::Inline {
+                len: value.len() as u8,
+                buffer,
+            })
+        } else {
+            Self(AtomInner::Owned(value.into()))
+        }
     }
 
     /// Returns the atom as a string slice.
     pub fn as_str(&self) -> &str {
         match &self.0 {
+            AtomInner::Inline { len, buffer: buf } => unsafe {
+                std::str::from_utf8_unchecked(&buf[..*len as usize])
+            },
             AtomInner::Owned(string) => string,
         }
     }
@@ -44,7 +59,11 @@ impl From<&str> for Atom {
 
 impl From<String> for Atom {
     fn from(value: String) -> Self {
-        Self(AtomInner::Owned(value.into_boxed_str()))
+        if value.len() <= INLINE_CAP {
+            Self::new(&value)
+        } else {
+            Self(AtomInner::Owned(value.into_boxed_str()))
+        }
     }
 }
 

@@ -2,6 +2,7 @@ use super::node::{Node, NodeId};
 use crate::memory::{atom::Atom, slab::Slab};
 
 /// Owns the node slab for a single S-expression tree.
+#[derive(Clone)]
 pub struct Tree {
     pub(super) nodes: Slab<Node>,
     pub(super) root: NodeId,
@@ -31,6 +32,18 @@ impl Tree {
             root,
             version: 0,
             bare: true,
+        }
+    }
+
+    /// Creates a tree with the node slab pre-allocated for `capacity` nodes.
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        let mut nodes = Slab::with_capacity(capacity);
+        let root = nodes.insert(Node::new_list());
+        Self {
+            nodes,
+            root,
+            version: 0,
+            bare: false,
         }
     }
 

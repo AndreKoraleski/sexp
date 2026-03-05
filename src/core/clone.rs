@@ -1,5 +1,4 @@
 use super::{
-    iter::ChildIter,
     mutation::append,
     node::{NodeId, NodeType},
     tree::Tree,
@@ -9,6 +8,9 @@ use super::{
 ///
 /// The destination root corresponds to `node`. Its children are cloned recursively.
 pub fn clone_subtree(source: &Tree, node: NodeId) -> Tree {
+    if node == source.root() {
+        return source.clone();
+    }
     match &source.get(node).kind {
         NodeType::Atom(atom) => {
             let mut nodes = crate::memory::slab::Slab::new();
@@ -16,11 +18,13 @@ pub fn clone_subtree(source: &Tree, node: NodeId) -> Tree {
             Tree::from_raw(nodes, root)
         }
         NodeType::List => {
-            let mut destination = Tree::new();
+            let mut destination = Tree::with_capacity(source.len());
             let destination_root = destination.root();
-            let children: Vec<NodeId> = ChildIter::new(source, node).collect();
-            for child in children {
-                clone_into(source, child, &mut destination, destination_root);
+            let mut cursor = source.first_child(node);
+            while let Some(child_id) = cursor {
+                let next = source.next_sibling(child_id);
+                clone_into(source, child_id, &mut destination, destination_root);
+                cursor = next;
             }
             destination
         }
@@ -38,8 +42,8 @@ pub fn extract_subtree(tree: &mut Tree, node: NodeId) -> Tree {
     extracted
 }
 
-/// Clones `source_node` from `source` into `destination` as a child of `destination_parent`.
-/// Uses an explicit stack to avoid call-stack overflow on deeply nested input.
+/// Clones `source_node` from `source` into `destination` as a child of `destination_parent`. Uses
+/// an explicit stack to avoid call-stack overflow on deeply nested input.
 fn clone_into(
     source: &Tree,
     source_node: NodeId,
@@ -53,9 +57,11 @@ fn clone_into(
             NodeType::List => destination.alloc_list(),
         };
         append(destination, dst_parent, new_node);
-        let children: Vec<NodeId> = ChildIter::new(source, src).collect();
-        for child in children.into_iter().rev() {
-            stack.push((child, new_node));
+        let mut cursor = source.last_child(src);
+        while let Some(child_id) = cursor {
+            let prev = source.prev_sibling(child_id);
+            stack.push((child_id, new_node));
+            cursor = prev;
         }
     }
 }

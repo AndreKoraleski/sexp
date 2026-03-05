@@ -20,9 +20,9 @@ use super::{
 /// Returns a [`ParseError`] if the input is structurally malformed: an unclosed parenthesis, a
 /// stray closing parenthesis, or more than one top-level form.
 pub fn parse(input: &str) -> Result<Tree, ParseError> {
-    let mut nodes: Slab<Node> = Slab::new();
-    let mut open_lists: Vec<NodeId> = Vec::new();
-    let mut top_level: Vec<NodeId> = Vec::new();
+    let mut nodes: Slab<Node> = Slab::with_capacity(input.len() / 3);
+    let mut open_lists: Vec<NodeId> = Vec::with_capacity(16);
+    let mut top_level: Vec<NodeId> = Vec::with_capacity(1);
 
     for token in Tokenizer::new(input) {
         match token {
@@ -91,6 +91,7 @@ fn link_child(nodes: &mut Slab<Node>, parent: NodeId, child: NodeId) {
     }
 
     nodes[parent].last_child = Some(child);
+    nodes[parent].child_count += 1;
 }
 
 #[cfg(test)]

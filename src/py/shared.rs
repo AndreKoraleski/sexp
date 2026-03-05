@@ -1,10 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use parking_lot::RwLock;
 use pyo3::{PyErr, PyResult, exceptions::PyRuntimeError};
 
 use crate::{
     core::{
-        iter::ChildIter,
         node::{NodeId, NodeType},
         tree::Tree,
     },
@@ -14,11 +14,7 @@ use crate::{
 use super::error::ParseError as PyParseError;
 
 /// Reference-counted handle to a shared Tree.
-pub(super) type SharedTree = Arc<Mutex<Tree>>;
-
-pub(super) fn lock_error() -> PyErr {
-    PyRuntimeError::new_err("internal tree lock poisoned")
-}
+pub(super) type SharedTree = Arc<RwLock<Tree>>;
 
 pub(super) fn stale_error() -> PyErr {
     PyRuntimeError::new_err("stale node reference")
@@ -55,13 +51,15 @@ pub(super) fn subtrees_equal(
                 }
             }
             (NodeType::List, NodeType::List) => {
-                let left_children: Vec<_> = ChildIter::new(left_tree, left).collect();
-                let right_children: Vec<_> = ChildIter::new(right_tree, right).collect();
-                if left_children.len() != right_children.len() {
+                if left_tree.get(left).child_count != right_tree.get(right).child_count {
                     return false;
                 }
-                for (l, r) in left_children.into_iter().zip(right_children) {
-                    stack.push((l, r));
+                let mut lc = left_tree.first_child(left);
+                let mut rc = right_tree.first_child(right);
+                while let (Some(l_id), Some(r_id)) = (lc, rc) {
+                    stack.push((l_id, r_id));
+                    lc = left_tree.next_sibling(l_id);
+                    rc = right_tree.next_sibling(r_id);
                 }
             }
             _ => return false,

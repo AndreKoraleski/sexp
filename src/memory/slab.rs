@@ -91,6 +91,12 @@ impl<T> Default for Slab<T> {
     }
 }
 
+impl<T: Clone> Clone for Slab<T> {
+    fn clone(&self) -> Self {
+        Slab(self.0.clone())
+    }
+}
+
 impl<T> std::ops::Index<Key<T>> for Slab<T> {
     type Output = T;
 
