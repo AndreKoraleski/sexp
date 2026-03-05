@@ -5,98 +5,56 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # ── Python ──────────────────────────────────────────────────────────────────
-  python-lint:
+  typos:
+    name: Typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.31.1
+
+  ruff:
     name: Python lint & format (ruff)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/ruff-action@v3
         with:
-          python-version: "3.12"
+          args: check .
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check .
 
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Format check
-        run: ruff format --check .
-
-  python-types:
+  mypy:
     name: Python types (mypy)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+      - run: pip install mypy
+      - run: mypy python/sexp
 
-      - name: Install dependencies
-        run: |
-          pip install mypy pytest
-          pip install -e .
-
-      - name: Type-check
-        run: mypy bindings/ benchmarks/
-
-  # ── C ───────────────────────────────────────────────────────────────────────
-  c-format:
-    name: C format (clang-format)
+  cargo-fmt:
+    name: Rust format (cargo fmt)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
+      - run: cargo fmt -- --check
 
-      - name: Install clang-format
-        run: sudo apt-get install -y clang-format
-
-      - name: Check formatting
-        run: |
-          find src bindings -name '*.c' -o -name '*.h' \
-            | xargs clang-format --dry-run --Werror
-
-  c-lint:
-    name: C lint (clang-tidy)
+  cargo-clippy:
+    name: Rust lint (cargo clippy)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get install -y clang clang-tidy cmake
-
-      - name: Configure (generate compile_commands.json)
-        run: cmake -B build
-
-      - name: Run clang-tidy
-        run: |
-          find src -name '*.c' \
-            | xargs clang-tidy -p build
-
-  c-static-analysis:
-    name: C static analysis (cppcheck)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install cppcheck
-        run: sudo apt-get install -y cppcheck
-
-      - name: Run cppcheck
-        run: |
-          cppcheck \
-            --enable=warning,style,performance,portability \
-            --std=c11 \
-            --error-exitcode=1 \
-            --suppress=missingIncludeSystem \
-            --suppressions-list=.cppcheck_suppressions \
-            -I src \
-            src/ bindings/
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - run: cargo clippy -- -D warnings
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_GHA_ENABLED: "true"

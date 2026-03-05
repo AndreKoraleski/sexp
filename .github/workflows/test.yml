@@ -4,9 +4,19 @@ on:
   pull_request:
   push:
     branches: [master]
+    paths:
+      - "src/**"
+      - "python/**"
+      - "tests/**"
+      - "Cargo.toml"
+      - "pyproject.toml"
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  python:
     name: Python ${{ matrix.python-version }} • ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -18,16 +28,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
-      - name: Install package and test dependencies
-        run: |
-          pip install --upgrade pip
-          pip install pytest pytest-benchmark pytest-cov
-          pip install -e .
+      - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - name: Run unit tests
-        run: pytest tests/python -x -q
+      - name: Build and install
+        uses: PyO3/maturin-action@v1
+        with:
+          command: develop
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_GHA_ENABLED: "true"
+
+      - name: Install test dependencies
+        run: pip install pytest pytest-cov
+
+      - name: Run tests
+        run: pytest tests/python -x -q --no-cov
+
+  rust:
+    name: Rust tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - run: cargo test
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_GHA_ENABLED: "true"
