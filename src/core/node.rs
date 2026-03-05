@@ -11,17 +11,17 @@ pub enum NodeType {
 
 /// A single node stored inside a [`crate::core::tree::Tree`].
 pub struct Node {
-    pub(super) kind: NodeType,
-    pub(super) parent: Option<NodeId>,
-    pub(super) first_child: Option<NodeId>,
-    pub(super) last_child: Option<NodeId>,
-    pub(super) previous_sibling: Option<NodeId>,
-    pub(super) next_sibling: Option<NodeId>,
+    pub(crate) kind: NodeType,
+    pub(crate) parent: Option<NodeId>,
+    pub(crate) first_child: Option<NodeId>,
+    pub(crate) last_child: Option<NodeId>,
+    pub(crate) previous_sibling: Option<NodeId>,
+    pub(crate) next_sibling: Option<NodeId>,
 }
 
 impl Node {
     /// Creates a new unlinked atom node.
-    pub(super) fn new_atom(value: Atom) -> Self {
+    pub(crate) fn new_atom(value: Atom) -> Self {
         Self {
             kind: NodeType::Atom(value),
             parent: None,
@@ -33,7 +33,7 @@ impl Node {
     }
 
     /// Creates a new unlinked list node.
-    pub(super) fn new_list() -> Self {
+    pub(crate) fn new_list() -> Self {
         Self {
             kind: NodeType::List,
             parent: None,

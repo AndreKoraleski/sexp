@@ -82,6 +82,14 @@ impl Tree {
     pub fn parent(&self, node: NodeId) -> Option<NodeId> {
         self.nodes[node].parent
     }
+
+    /// Assembles a `Tree` from a pre-built slab and a root node id.
+    ///
+    /// Used by the parser, which builds the slab directly rather than going through the public
+    /// mutation API.
+    pub(crate) fn from_raw(nodes: Slab<Node>, root: NodeId) -> Self {
+        Self { nodes, root }
+    }
 }
 
 impl Default for Tree {
