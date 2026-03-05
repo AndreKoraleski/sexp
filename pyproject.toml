@@ -57,12 +57,17 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM", "ANN", "RUF", "D", "Q"]
 ignore = ["ANN401", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "D"]
+"tests/**" = ["ANN", "D", "E711", "F401"]
 "benchmarks/**" = ["D"]
 "python/sexp/__init__.py" = ["F401", "F403"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sexp"]
+
+# --- Pyright ---
+
+[tool.pyright]
+exclude = ["tests/**"]
 
 # --- Mypy ---
 
