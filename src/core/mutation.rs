@@ -2,10 +2,16 @@ use super::{iter::ChildIter, node::NodeId, tree::Tree};
 
 /// Appends `child` as the last child of `parent`.
 ///
+/// If `child` is already attached elsewhere in the tree it is first detached from its current
+/// parent and siblings.
+///
 /// # Panics
 ///
 /// Panics if either id is stale.
 pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
+    if tree.nodes[child].parent.is_some() {
+        unlink(tree, child);
+    }
     let previous_last = tree.nodes[parent].last_child;
 
     tree.nodes[child].parent = Some(parent);
@@ -21,10 +27,15 @@ pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
 
 /// Inserts `child` as the first child of `parent`.
 ///
+/// If `child` is already attached elsewhere in the tree it is first detached.
+///
 /// # Panics
 ///
 /// Panics if either id is stale.
 pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
+    if tree.nodes[child].parent.is_some() {
+        unlink(tree, child);
+    }
     let previous_first = tree.nodes[parent].first_child;
 
     tree.nodes[child].parent = Some(parent);
@@ -42,10 +53,15 @@ pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
 ///
 /// Pass `None` for `after` to insert `child` as the first child of `parent`.
 ///
+/// If `child` is already attached elsewhere in the tree it is first detached.
+///
 /// # Panics
 ///
 /// Panics if any id is stale.
 pub fn insert_after(tree: &mut Tree, parent: NodeId, after: Option<NodeId>, child: NodeId) {
+    if tree.nodes[child].parent.is_some() {
+        unlink(tree, child);
+    }
     match after {
         None => prepend(tree, parent, child),
         Some(sibling) => {
@@ -119,7 +135,7 @@ fn drop_subtree(tree: &mut Tree, node: NodeId) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::tree::Tree;
+    use crate::core::{iter::ChildIter, tree::Tree};
 
     #[test]
     fn appended_child_becomes_last_child() {
@@ -192,5 +208,59 @@ mod tests {
         assert!(tree.nodes.get(list).is_none());
         assert!(tree.nodes.get(child).is_none());
         assert!(tree.is_empty());
+    }
+
+    #[test]
+    fn append_moves_already_attached_node() {
+        let mut tree = Tree::new();
+        let root = tree.root();
+        let a = tree.alloc_atom("a");
+        let b = tree.alloc_atom("b");
+        let c = tree.alloc_atom("c");
+        append(&mut tree, root, a);
+        append(&mut tree, root, b);
+        append(&mut tree, root, c);
+        append(&mut tree, root, a);
+        let children: Vec<_> = ChildIter::new(&tree, root).collect();
+        assert_eq!(children.len(), 3);
+        assert_eq!(tree.get(children[0]).atom_value().unwrap().as_str(), "b");
+        assert_eq!(tree.get(children[1]).atom_value().unwrap().as_str(), "c");
+        assert_eq!(tree.get(children[2]).atom_value().unwrap().as_str(), "a");
+    }
+
+    #[test]
+    fn prepend_moves_already_attached_node() {
+        let mut tree = Tree::new();
+        let root = tree.root();
+        let a = tree.alloc_atom("a");
+        let b = tree.alloc_atom("b");
+        let c = tree.alloc_atom("c");
+        append(&mut tree, root, a);
+        append(&mut tree, root, b);
+        append(&mut tree, root, c);
+        prepend(&mut tree, root, c);
+        let children: Vec<_> = ChildIter::new(&tree, root).collect();
+        assert_eq!(children.len(), 3);
+        assert_eq!(tree.get(children[0]).atom_value().unwrap().as_str(), "c");
+        assert_eq!(tree.get(children[1]).atom_value().unwrap().as_str(), "a");
+        assert_eq!(tree.get(children[2]).atom_value().unwrap().as_str(), "b");
+    }
+
+    #[test]
+    fn insert_after_moves_already_attached_node() {
+        let mut tree = Tree::new();
+        let root = tree.root();
+        let a = tree.alloc_atom("a");
+        let b = tree.alloc_atom("b");
+        let c = tree.alloc_atom("c");
+        append(&mut tree, root, a);
+        append(&mut tree, root, b);
+        append(&mut tree, root, c);
+        insert_after(&mut tree, root, Some(a), c);
+        let children: Vec<_> = ChildIter::new(&tree, root).collect();
+        assert_eq!(children.len(), 3);
+        assert_eq!(tree.get(children[0]).atom_value().unwrap().as_str(), "a");
+        assert_eq!(tree.get(children[1]).atom_value().unwrap().as_str(), "c");
+        assert_eq!(tree.get(children[2]).atom_value().unwrap().as_str(), "b");
     }
 }

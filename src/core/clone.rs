@@ -9,13 +9,22 @@ use super::{
 ///
 /// The destination root corresponds to `node`. Its children are cloned recursively.
 pub fn clone_subtree(source: &Tree, node: NodeId) -> Tree {
-    let mut destination = Tree::new();
-    let destination_root = destination.root();
-    let children: Vec<NodeId> = ChildIter::new(source, node).collect();
-    for child in children {
-        clone_into(source, child, &mut destination, destination_root);
+    match &source.get(node).kind {
+        NodeType::Atom(atom) => {
+            let mut nodes = crate::memory::slab::Slab::new();
+            let root = nodes.insert(super::node::Node::new_atom(atom.clone()));
+            Tree::from_raw(nodes, root)
+        }
+        NodeType::List => {
+            let mut destination = Tree::new();
+            let destination_root = destination.root();
+            let children: Vec<NodeId> = ChildIter::new(source, node).collect();
+            for child in children {
+                clone_into(source, child, &mut destination, destination_root);
+            }
+            destination
+        }
     }
-    destination
 }
 
 /// Removes the subtree rooted at `node` from `tree` and returns it as a new [`Tree`].
@@ -99,5 +108,48 @@ mod tests {
         assert!(tree.nodes.get(inner_list).is_none());
         assert!(tree.len() < node_count_before);
         assert_eq!(extracted.len(), 3);
+    }
+
+    #[test]
+    fn clone_subtree_of_atom_produces_atom_root() {
+        let mut tree = Tree::new();
+        let root = tree.root();
+        let atom = tree.alloc_atom("hello");
+        mutation::append(&mut tree, root, atom);
+        let cloned = clone_subtree(&tree, atom);
+        assert!(cloned.get(cloned.root()).is_atom());
+        assert_eq!(
+            cloned.get(cloned.root()).atom_value().unwrap().as_str(),
+            "hello"
+        );
+        assert_eq!(cloned.len(), 1);
+    }
+
+    #[test]
+    fn extract_subtree_of_atom_returns_atom_root() {
+        let mut tree = build_nested_tree();
+        let root = tree.root();
+        let atom_a = tree.first_child(root).unwrap();
+        let extracted = extract_subtree(&mut tree, atom_a);
+        assert!(extracted.get(extracted.root()).is_atom());
+        assert_eq!(
+            extracted
+                .get(extracted.root())
+                .atom_value()
+                .unwrap()
+                .as_str(),
+            "a"
+        );
+        assert!(tree.nodes.get(atom_a).is_none());
+    }
+
+    #[test]
+    fn extract_subtree_of_root_returns_full_clone_without_modifying_source() {
+        let mut tree = build_nested_tree();
+        let len_before = tree.len();
+        let root = tree.root();
+        let extracted = extract_subtree(&mut tree, root);
+        assert_eq!(tree.len(), len_before);
+        assert_eq!(extracted.len(), len_before);
     }
 }

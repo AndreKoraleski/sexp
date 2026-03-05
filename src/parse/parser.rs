@@ -59,7 +59,7 @@ pub fn parse(input: &str) -> Result<Tree, ParseError> {
     }
 
     match top_level.len() {
-        0 => Ok(Tree::new()),
+        0 => Ok(Tree::new_bare()),
         1 => Ok(Tree::from_raw(nodes, top_level[0])),
         _ => Err(ParseError::MultipleTopLevelForms),
     }
@@ -173,5 +173,18 @@ mod tests {
             parse("a b"),
             Err(ParseError::MultipleTopLevelForms)
         ));
+    }
+
+    #[test]
+    fn empty_input_returns_bare_tree() {
+        let tree = parse("").unwrap();
+        assert!(tree.is_bare());
+    }
+
+    #[test]
+    fn non_empty_input_is_not_bare() {
+        assert!(!parse("(a b)").unwrap().is_bare());
+        assert!(!parse("hello").unwrap().is_bare());
+        assert!(!parse("()").unwrap().is_bare());
     }
 }
