@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-03-04
+
+### Fixed
+
+- `bindings/sexp/__init__.pyi` now contains inline class and function
+  definitions instead of re-exporting from `_sexp`, so IDEs (Pylance, pyright)
+  can resolve method signatures and docstrings for `SExp`, `SExpNode` and
+  `parse` without needing to locate the C extension stub separately.
+
+### Changed
+
+- Applied `clang-format` to C sources; extracted `has_multiple_roots` helper.
+
 ## [1.1.1] - 2026-03-04
 
 ### Changed
