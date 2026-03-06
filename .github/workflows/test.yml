@@ -45,7 +45,7 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
 
       - name: Install wheel and test dependencies
-        run: pip install dist/*.whl pytest pytest-cov
+        run: pip install --find-links dist sexp pytest pytest-cov
 
       - name: Run tests
         run: pytest tests/python -x -q --no-cov

@@ -44,7 +44,7 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
 
       - name: Install wheel and benchmark dependencies
-        run: pip install dist/*.whl pytest pytest-benchmark
+        run: pip install --find-links dist sexp pytest pytest-benchmark
 
       - name: Restore benchmark baseline
         id: restore-baseline
@@ -59,6 +59,7 @@ jobs:
         if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-hit == 'true'
         run: |
           pytest benchmarks/ -q \
+            --no-cov \
             --benchmark-only \
             --benchmark-disable-gc \
             --benchmark-storage=benchmarks/.results \
@@ -70,6 +71,7 @@ jobs:
         if: github.event_name == 'push' || steps.restore-baseline.outputs.cache-hit != 'true'
         run: |
           pytest benchmarks/ -q \
+            --no-cov \
             --benchmark-only \
             --benchmark-disable-gc \
             --benchmark-storage=benchmarks/.results \
