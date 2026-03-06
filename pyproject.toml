@@ -1,15 +1,15 @@
 [build-system]
-requires = ["scikit-build-core>=0.10"]
-build-backend = "scikit_build_core.build"
+requires = ["maturin>=1.12,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "sexp"
-version = "1.1.2"
-description = "A minimal-allocation S-expression library for Python, backed by a C extension."
+description = "A minimal-allocation S-expression library for Python, backed by Rust."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "Andre Koraleski", email = "andrekorale@gmail.com"}]
+keywords = ["sexp", "s-expression", "lisp", "parser"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -17,11 +17,14 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
     "Topic :: Text Processing",
 ]
-dependencies = []
+dynamic = ["version"]
 
 [project.urls]
 Repository = "https://github.com/AndreKoraleski/sexp"
@@ -35,42 +38,47 @@ dev = [
     "ruff>=0.15.4",
 ]
 
-# -----------------------------------------------------------------------------
-# Ruff
-# -----------------------------------------------------------------------------
+# --- Maturin ---
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "sexp._sexp"
+
+# --- Ruff ---
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+src = ["python"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM", "ANN", "RUF", "D", "Q"]
 ignore = ["ANN401", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN", "D"]
+"tests/**" = ["ANN", "D", "E711", "F401"]
 "benchmarks/**" = ["D"]
+"python/sexp/__init__.py" = ["F401", "F403"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sexp"]
 
-# -----------------------------------------------------------------------------
-# Mypy
-# -----------------------------------------------------------------------------
+# --- Pyright ---
 
-# stubs/ holds hand-written type stubs for third-party packages that ship no
-# annotations of their own.
+[tool.pyright]
+exclude = ["tests/**"]
+
+# --- Mypy ---
+
 [tool.mypy]
 python_version = "3.10"
 strict = true
-mypy_path = ["stubs"]
 warn_return_any = true
 warn_unused_configs = true
 exclude = ["^tests/"]
 
-# -----------------------------------------------------------------------------
-# Pytest
-# -----------------------------------------------------------------------------
+# --- Pytest ---
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
@@ -80,9 +88,7 @@ addopts = [
     "--cov-branch",
 ]
 
-# -----------------------------------------------------------------------------
-# Coverage
-# -----------------------------------------------------------------------------
+# --- Coverage ---
 
 [tool.coverage.run]
 source = ["sexp"]
@@ -98,30 +104,21 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-# -----------------------------------------------------------------------------
-# cibuildwheel
-# -----------------------------------------------------------------------------
+# --- CIBuildWheel ---
 
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip  = "pp* cp313t-*"
-
-test-requires = ["pytest", "pytest-benchmark", "pytest-cov"]
+test-requires = ["pytest"]
 test-command  = "pytest {project}/tests/python -x -q --no-cov"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable"
+environment = {PATH = "$HOME/.cargo/bin:$PATH"}
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-
-# -----------------------------------------------------------------------------
-# scikit-build-core
-# -----------------------------------------------------------------------------
-
-[tool.scikit-build]
-wheel.packages = ["bindings/sexp"]
-cmake.build-type = "Release"

@@ -1,0 +1,85 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "pyproject.toml"
+      - "benchmarks/**"
+  pull_request:
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "pyproject.toml"
+      - "benchmarks/**"
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Benchmark regression check
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Build release wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+        env:
+          RUSTC_WRAPPER: sccache
+          SCCACHE_GHA_ENABLED: "true"
+
+      - name: Install wheel and benchmark dependencies
+        run: pip install --find-links dist sexp pytest pytest-benchmark pytest-cov
+
+      - name: Restore benchmark baseline
+        id: restore-baseline
+        uses: actions/cache/restore@v4
+        with:
+          path: benchmarks/.results
+          key: bench-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            bench-${{ runner.os }}-
+
+      - name: Run benchmarks and check for regressions
+        if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-hit == 'true'
+        run: |
+          pytest benchmarks/ -q \
+            --no-cov \
+            --benchmark-only \
+            --benchmark-disable-gc \
+            --benchmark-storage=benchmarks/.results \
+            --benchmark-compare \
+            --benchmark-compare-fail=median:15%
+
+      # --- master ---
+      - name: Run benchmarks and save results
+        if: github.event_name == 'push' || steps.restore-baseline.outputs.cache-hit != 'true'
+        run: |
+          pytest benchmarks/ -q \
+            --no-cov \
+            --benchmark-only \
+            --benchmark-disable-gc \
+            --benchmark-storage=benchmarks/.results \
+            --benchmark-autosave
+
+      - name: Save benchmark baseline
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v4
+        with:
+          path: benchmarks/.results
+          key: bench-${{ runner.os }}-${{ github.sha }}

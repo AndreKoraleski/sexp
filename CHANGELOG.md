@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-05
+
+Complete rewrite of the extension module in Rust (PyO3 + maturin), replacing
+the C11 implementation. Performance is at parity with or exceeds the C
+version across all measured workloads.
+
+### Breaking changes
+
+- **`SExpNode` removed.** The separate `SExpNode` type no longer exists.
+  `parse()` now returns an `SExp` that is itself the root node, and every
+  handle obtained by indexing, iterating, or navigation is the same `SExp`
+  type. Code that imported or annotated `SExpNode` must be updated.
+- **`parent` on a top-level node** now returns the root `SExp`, not `None`.
+  `None` is only returned by `node.parent` when `node` is the root itself.
+
+### Added
+
+- String key lookup (`node["key"]`) now also matches **bare atom children**
+  whose value equals the key, in addition to list children whose head matches.
+- Benchmark regression CI (`.github/workflows/benchmark.yml`) — master pushes
+  save a baseline; PRs fail if any benchmark regresses by more than 15% median.
+
+### Changed
+
+- Build backend switched from `scikit-build-core` / CMake to `maturin`.
+  Building from source now requires a Rust stable toolchain instead of CMake
+  and a C compiler.
+- `SExpIter` is now an implementation detail, the public iterator type is
+  `Iterator[SExp]` in all annotations.
+
+### Removed
+
+- `SExpNode` type.
+- C source tree, CMake build files, and Unity test framework.
+- `docs/how-it-works.md` and `docs/internals/` — replaced by
+  `docs/guide.md`.
+
+---
+
 ## [1.1.2] - 2026-03-04
 
 ### Fixed
@@ -78,6 +117,8 @@ First stable release.
 - `docs/internals/` — deep-dives on the arena, intern pool, node array, parser, and mutation
 - Five annotated examples: query, transform, build, split-document, mini Lisp evaluator
 
+[2.0.0]: https://github.com/AndreKoraleski/sexp/releases/tag/v2.0.0
+[1.1.2]: https://github.com/AndreKoraleski/sexp/releases/tag/v1.1.2
 [1.1.1]: https://github.com/AndreKoraleski/sexp/releases/tag/v1.1.1
 [1.1.0]: https://github.com/AndreKoraleski/sexp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/AndreKoraleski/sexp/releases/tag/v1.0.0

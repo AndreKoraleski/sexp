@@ -1,12 +1,21 @@
 from __future__ import annotations
 
-import tracemalloc
+import os
+from typing import Final
 
 import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
 import sexp
 from benchmarks.inputs import DEEP, LARGE, MEDIUM, SMALL, WIDE
+
+_PAGE_SIZE: Final[int] = os.sysconf("SC_PAGE_SIZE")
+
+
+def _rss_bytes() -> int:
+    with open("/proc/self/statm") as f:
+        return int(f.read().split()[1]) * _PAGE_SIZE
+
 
 _PARAMS = [
     pytest.param(SMALL, 1000, id="small"),
@@ -18,10 +27,9 @@ _PARAMS = [
 
 
 @pytest.mark.parametrize("data,iterations", _PARAMS)
-def test_peak_allocation(benchmark: BenchmarkFixture, data: bytes, iterations: int) -> None:
-    tracemalloc.start()
+def test_rss_growth(benchmark: BenchmarkFixture, data: bytes, iterations: int) -> None:
+    before = _rss_bytes()
     sexp.parse(data)
-    _, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    benchmark.extra_info["peak_alloc_bytes"] = peak
+    after = _rss_bytes()
+    benchmark.extra_info["rss_delta_bytes"] = max(0, after - before)
     benchmark.pedantic(sexp.parse, args=(data,), iterations=iterations, rounds=100)

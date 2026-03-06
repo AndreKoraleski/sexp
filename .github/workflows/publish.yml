@@ -3,75 +3,35 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
-  id-token: write
+  contents: read
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Binary wheels
-  # ---------------------------------------------------------------------------
-  build_wheels:
-    name: Wheels • ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  build:
+    name: Build wheels
+    uses: ./.github/workflows/build-wheels.yml
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.os }}
-          path: ./wheelhouse/*.whl
-
-  # ---------------------------------------------------------------------------
-  # Source distribution
-  # ---------------------------------------------------------------------------
-  build_sdist:
-    name: Source distribution
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build sdist
-        run: pipx run build --sdist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sdist
-          path: dist/*.tar.gz
-
-  # ---------------------------------------------------------------------------
-  # Publish
-  # ---------------------------------------------------------------------------
-  publish:
+  release:
     name: Publish to PyPI
-    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/sexp/
+    needs: [build]
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
+      - uses: actions/download-artifact@v4
 
-      - name: Publish
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: "wheels-*/*"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Publish to PyPI
+        run: uv publish "wheels-*/*"

@@ -8,10 +8,10 @@ from pytest_benchmark.fixture import BenchmarkFixture
 import sexp
 from benchmarks.inputs import LARGE, MEDIUM, SMALL
 
-_ROUNDS = 200
+_ROUNDS = 1000
 
 
-def _setup_append() -> tuple[tuple[sexp.SExp, sexp.SExpNode], dict[str, Any]]:
+def _tree_and_atom() -> tuple[tuple[sexp.SExp, sexp.SExp], dict[str, Any]]:
     tree = sexp.parse(MEDIUM)
     return (tree, tree.new_atom("x")), {}
 
@@ -19,7 +19,7 @@ def _setup_append() -> tuple[tuple[sexp.SExp, sexp.SExpNode], dict[str, Any]]:
 def test_append(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(
         lambda tree, node: tree.append(node),
-        setup=_setup_append,
+        setup=_tree_and_atom,
         iterations=1,
         rounds=_ROUNDS,
     )
@@ -28,23 +28,40 @@ def test_append(benchmark: BenchmarkFixture) -> None:
 def test_prepend(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(
         lambda tree, node: tree.prepend(node),
-        setup=_setup_append,
+        setup=_tree_and_atom,
         iterations=1,
         rounds=_ROUNDS,
     )
 
 
-_REMOVE_PARAMS = [
+def test_insert_after(benchmark: BenchmarkFixture) -> None:
+    def _setup() -> tuple[tuple[sexp.SExp, sexp.SExp, sexp.SExp], dict[str, Any]]:
+        tree = sexp.parse(MEDIUM)
+        return (tree, tree[0], tree.new_atom("x")), {}
+
+    benchmark.pedantic(
+        lambda tree, ref, node: tree.insert_after(ref, node),
+        setup=_setup,
+        iterations=1,
+        rounds=_ROUNDS,
+    )
+
+
+_SIZE_PARAMS = [
     pytest.param(SMALL, id="small"),
     pytest.param(MEDIUM, id="medium"),
     pytest.param(LARGE, id="large"),
 ]
 
+_SUBTREE_PARAMS = [
+    pytest.param(MEDIUM, id="medium"),
+    pytest.param(LARGE, id="large"),
+]
 
-@pytest.mark.parametrize("data", _REMOVE_PARAMS)
+
+@pytest.mark.parametrize("data", _SIZE_PARAMS)
 def test_remove_leaf(benchmark: BenchmarkFixture, data: bytes) -> None:
-
-    def _setup() -> tuple[tuple[sexp.SExpNode], dict[str, Any]]:
+    def _setup() -> tuple[tuple[sexp.SExp], dict[str, Any]]:
         tree = sexp.parse(data)
         node = tree[len(tree) - 1]
         return (node,), {}
@@ -57,10 +74,9 @@ def test_remove_leaf(benchmark: BenchmarkFixture, data: bytes) -> None:
     )
 
 
-@pytest.mark.parametrize("data", _REMOVE_PARAMS)
+@pytest.mark.parametrize("data", _SUBTREE_PARAMS)
 def test_remove_subtree(benchmark: BenchmarkFixture, data: bytes) -> None:
-
-    def _setup() -> tuple[tuple[sexp.SExpNode], dict[str, Any]] | None:
+    def _setup() -> tuple[tuple[sexp.SExp], dict[str, Any]] | None:
         tree = sexp.parse(data)
         for node in tree:
             if not node.is_atom:
@@ -91,11 +107,9 @@ def test_clone(benchmark: BenchmarkFixture, data: bytes, iterations: int) -> Non
     benchmark.pedantic(root.clone, iterations=iterations, rounds=100)
 
 
-@pytest.mark.parametrize("data", _REMOVE_PARAMS)
+@pytest.mark.parametrize("data", _SUBTREE_PARAMS)
 def test_extract(benchmark: BenchmarkFixture, data: bytes) -> None:
-    """Extract the first non-atom child (clone + remove)."""
-
-    def _setup() -> tuple[tuple[sexp.SExpNode], dict[str, Any]] | None:
+    def _setup() -> tuple[tuple[sexp.SExp], dict[str, Any]] | None:
         tree = sexp.parse(data)
         for node in tree:
             if not node.is_atom:
