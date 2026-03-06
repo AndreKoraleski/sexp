@@ -1,16 +1,12 @@
 # sexp
 
-[![Build](https://github.com/AndreKoraleski/sexp/actions/workflows/build.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/build.yml)
+[![Build](https://github.com/AndreKoraleski/sexp/actions/workflows/build-wheels.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/build-wheels.yml)
 [![Test](https://github.com/AndreKoraleski/sexp/actions/workflows/test.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/sexp)](https://pypi.org/project/sexp/)
 [![Python](https://img.shields.io/pypi/pyversions/sexp)](https://pypi.org/project/sexp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A minimal-allocation S-expression library for Python, backed by a C extension.
-
-Parsing and tree manipulation are handled entirely in C with a bump-pointer
-arena allocator and an interned string pool. Python gets lightweight node
-views — no copying, no per-node heap allocation.
+A fast S-expression library for Python.
 
 ## Installation
 
@@ -44,38 +40,36 @@ assert repr(parse(src)) == src
 | Path | Contents |
 |------|----------|
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
-| [docs/api.md](docs/api.md) | Full API reference, including recipes for common patterns |
-| [docs/how-it-works.md](docs/how-it-works.md) | Architecture overview: node array, arena, intern pool, parser |
-| [docs/internals/](docs/internals/README.md) | Internals wiki: node array, arena, intern pool, parser, mutation |
+| [docs/api.md](docs/api.md) | Full API reference |
+| [docs/guide.md](docs/guide.md) | User guide: navigation, mutation, patterns |
 
 ## Development
 
 ### Prerequisites
 
-| Audience | Requirements |
-|----------|--------------|
-| **Installing from PyPI** | Python 3.10+ — wheels are provided for Linux (x86\_64, aarch64), macOS (x86\_64, arm64), and Windows (AMD64). No compiler needed. |
-| **Building from source** | Python 3.10+, CMake 3.15+, and a C11 compiler (gcc or clang on Linux/macOS; MSVC 2019+ or clang-cl on Windows). |
+- Python 3.10+
+- [Rust stable toolchain](https://rustup.rs) (for building from source)
 
 ### Setup
 
 ```bash
 python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install maturin
+make dev
 pip install -e '.[dev]'
 ```
 
-### Running tests
+### Common tasks
 
-```bash
-# Python tests
-pytest tests/python
-
-# C tests
-cmake -B build && cmake --build build
-ctest --test-dir build --output-on-failure
-
-# Benchmarks (local only)
-pytest benchmarks/ --benchmark-only
+```
+make test        Run Python tests
+make test-rs     Run Rust unit tests
+make test-all    Run all tests
+make lint        Lint (ruff + clippy)
+make format      Auto-format (ruff + rustfmt)
+make typecheck   mypy
+make bench       Run benchmarks
+make help        Show all available targets
 ```
 
 ## License
