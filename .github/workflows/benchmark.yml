@@ -44,7 +44,7 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
 
       - name: Install wheel and benchmark dependencies
-        run: pip install --find-links dist sexp pytest pytest-benchmark
+        run: pip install --find-links dist sexp pytest pytest-benchmark pytest-cov
 
       - name: Restore benchmark baseline
         id: restore-baseline
