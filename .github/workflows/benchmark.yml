@@ -34,17 +34,17 @@ jobs:
 
       - uses: mozilla-actions/sccache-action@v0.0.9
 
-      - name: Build release wheel (editable)
+      - name: Build release wheel
         uses: PyO3/maturin-action@v1
         with:
-          command: develop
-          args: --release
+          command: build
+          args: --release --out dist
         env:
           RUSTC_WRAPPER: sccache
           SCCACHE_GHA_ENABLED: "true"
 
-      - name: Install benchmark dependencies
-        run: pip install pytest pytest-benchmark
+      - name: Install wheel and benchmark dependencies
+        run: pip install dist/*.whl pytest pytest-benchmark
 
       - name: Restore benchmark baseline
         id: restore-baseline
@@ -65,7 +65,7 @@ jobs:
             --benchmark-compare \
             --benchmark-compare-fail=median:15%
 
-      # --- master path: ---
+      # --- master ---
       - name: Run benchmarks and save results
         if: github.event_name == 'push' || steps.restore-baseline.outputs.cache-hit != 'true'
         run: |
