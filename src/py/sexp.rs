@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use parking_lot::RwLock;
-
 use pyo3::{
     exceptions::{PyIndexError, PyTypeError, PyValueError},
     prelude::*,
-    types::{PyAny, PyList},
+    types::{PyAny, PyInt, PyList, PyString},
 };
 
 use crate::{
@@ -21,7 +19,7 @@ use crate::{
 
 use super::{
     iter::SExpIter,
-    shared::{SharedTree, assert_same_tree, stale_error, subtrees_equal},
+    shared::{GilTree, SharedTree, assert_same_tree, stale_error, subtrees_equal},
 };
 
 /// A single node in an S-expression tree.
@@ -46,7 +44,7 @@ impl SExp {
         SExp {
             node,
             version,
-            tree: Arc::new(RwLock::new(tree)),
+            tree: Arc::new(GilTree::new(tree)),
         }
     }
 
@@ -64,35 +62,37 @@ impl SExp {
         self.node != tree.root() && self.version != tree.version()
     }
 
-    fn with_tree<F, T>(&self, f: F) -> PyResult<T>
+    fn with_tree<F, T>(&self, py: Python<'_>, f: F) -> PyResult<T>
     where
         F: FnOnce(&Tree) -> PyResult<T>,
     {
-        let guard = self.tree.read();
-        if self.is_stale(&guard) {
+        let tree = self.tree.get(py);
+        if self.is_stale(tree) {
             return Err(stale_error());
         }
-        f(&guard)
+        f(tree)
     }
 
-    fn with_tree_mut<F, T>(&self, f: F) -> PyResult<T>
+    fn with_tree_mut<F, T>(&self, py: Python<'_>, f: F) -> PyResult<T>
     where
         F: FnOnce(&mut Tree) -> PyResult<T>,
     {
-        let mut guard = self.tree.write();
-        if self.is_stale(&guard) {
+        let tree = self.tree.get_mut(py);
+        if self.is_stale(tree) {
             return Err(stale_error());
         }
-        f(&mut guard)
+        f(tree)
     }
 
     fn collect_children(&self, py: Python<'_>) -> PyResult<Vec<Py<SExp>>> {
-        self.with_tree(|tree| {
-            let v = tree.version();
-            ChildIter::new(tree, self.node)
-                .map(|id| Py::new(py, SExp::from_shared(self.tree.clone(), id, v)))
-                .collect::<PyResult<Vec<_>>>()
-        })
+        let tree = self.tree.get(py);
+        if self.is_stale(tree) {
+            return Err(stale_error());
+        }
+        let v = tree.version();
+        ChildIter::new(tree, self.node)
+            .map(|id| Py::new(py, SExp::from_shared(self.tree.clone(), id, v)))
+            .collect::<PyResult<Vec<_>>>()
     }
 }
 
@@ -104,8 +104,8 @@ impl SExp {
         SExp::from_tree(Tree::new())
     }
 
-    fn __repr__(&self) -> PyResult<String> {
-        self.with_tree(|tree| {
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        self.with_tree(py, |tree| {
             if tree.is_bare() && self.node == tree.root() && tree.first_child(self.node).is_none() {
                 return Ok(String::new());
             }
@@ -113,41 +113,43 @@ impl SExp {
         })
     }
 
-    fn __len__(&self) -> PyResult<usize> {
-        self.with_tree(|tree| Ok(tree.get(self.node).child_count as usize))
+    fn __len__(&self, py: Python<'_>) -> PyResult<usize> {
+        self.with_tree(py, |tree| Ok(tree.get(self.node).child_count as usize))
     }
 
     fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
+        let py = other.py();
         let Ok(other_sexp) = other.extract::<PyRef<'_, SExp>>() else {
             return Ok(false);
         };
         if Arc::ptr_eq(&self.tree, &other_sexp.tree) {
-            let guard = self.tree.read();
-            if self.is_stale(&guard) || other_sexp.is_stale(&guard) {
+            let tree = self.tree.get(py);
+            if self.is_stale(tree) || other_sexp.is_stale(tree) {
                 return Err(stale_error());
             }
-            Ok(subtrees_equal(&guard, self.node, &guard, other_sexp.node))
+            Ok(subtrees_equal(tree, self.node, tree, other_sexp.node))
         } else {
-            let self_guard = self.tree.read();
-            if self.is_stale(&self_guard) {
+            let self_tree = self.tree.get(py);
+            if self.is_stale(self_tree) {
                 return Err(stale_error());
             }
-            let other_guard = other_sexp.tree.read();
-            if other_sexp.is_stale(&other_guard) {
+            let other_tree = other_sexp.tree.get(py);
+            if other_sexp.is_stale(other_tree) {
                 return Err(stale_error());
             }
             Ok(subtrees_equal(
-                &self_guard,
+                self_tree,
                 self.node,
-                &other_guard,
+                other_tree,
                 other_sexp.node,
             ))
         }
     }
 
     fn __contains__(&self, item: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let guard = self.tree.read();
-        if self.is_stale(&guard) {
+        let py = item.py();
+        let tree = self.tree.get(py);
+        if self.is_stale(tree) {
             return Err(stale_error());
         }
         if let Ok(other_sexp) = item.extract::<PyRef<'_, SExp>>() {
@@ -155,14 +157,14 @@ impl SExp {
                 return Ok(false);
             }
 
-            if other_sexp.is_stale(&guard) {
+            if other_sexp.is_stale(tree) {
                 return Ok(false);
             }
-            return Ok(ChildIter::new(&guard, self.node).any(|id| id == other_sexp.node));
+            return Ok(ChildIter::new(tree, self.node).any(|id| id == other_sexp.node));
         }
         if let Ok(s) = item.extract::<&str>() {
-            for child_id in ChildIter::new(&guard, self.node) {
-                if let Some(atom) = guard.get(child_id).atom_value()
+            for child_id in ChildIter::new(tree, self.node) {
+                if let Some(atom) = tree.get(child_id).atom_value()
                     && atom.as_str() == s
                 {
                     return Ok(true);
@@ -174,23 +176,26 @@ impl SExp {
     }
 
     fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        if let Ok(index) = key.extract::<isize>() {
-            let (child_id, version) = self.with_tree(|tree| {
-                let children: Vec<NodeId> = ChildIter::new(tree, self.node).collect();
-                let len = children.len() as isize;
+        if let Ok(int_key) = key.cast::<PyInt>() {
+            let index = int_key.extract::<isize>()?;
+            let (child_id, version) = self.with_tree(py, |tree| {
+                let len = tree.get(self.node).child_count as isize;
                 let real = if index < 0 { len + index } else { index };
                 if real < 0 || real >= len {
-                    Err(PyIndexError::new_err("index out of range"))
-                } else {
-                    Ok((children[real as usize], tree.version()))
+                    return Err(PyIndexError::new_err("index out of range"));
                 }
+                let child_id = ChildIter::new(tree, self.node)
+                    .nth(real as usize)
+                    .expect("child_count was consistent");
+                Ok((child_id, tree.version()))
             })?;
             return Py::new(py, SExp::from_shared(self.tree.clone(), child_id, version))
                 .map(|p| p.into_bound(py).into_any().unbind());
         }
 
-        if let Ok(s) = key.extract::<String>() {
-            let (child_id, version) = self.with_tree(|tree| {
+        if let Ok(str_key) = key.cast::<PyString>() {
+            let s = str_key.to_str()?;
+            let (child_id, version) = self.with_tree(py, |tree| {
                 let v = tree.version();
                 ChildIter::new(tree, self.node)
                     .find(|&id| {
@@ -198,12 +203,10 @@ impl SExp {
                         if let Some(first_child) = node.first_child {
                             tree.get(first_child)
                                 .atom_value()
-                                .map(|a| a.as_str() == s.as_str())
+                                .map(|a| a.as_str() == s)
                                 .unwrap_or(false)
                         } else {
-                            node.atom_value()
-                                .map(|a| a.as_str() == s.as_str())
-                                .unwrap_or(false)
+                            node.atom_value().map(|a| a.as_str() == s).unwrap_or(false)
                         }
                     })
                     .map(|id| (id, v))
@@ -219,15 +222,19 @@ impl SExp {
     }
 
     fn __iter__(&self, py: Python<'_>) -> PyResult<Py<SExpIter>> {
-        let (first, version) =
-            self.with_tree(|tree| Ok((tree.first_child(self.node), tree.version())))?;
+        let tree = self.tree.get(py);
+        if self.is_stale(tree) {
+            return Err(stale_error());
+        }
+        let first = tree.first_child(self.node);
+        let version = tree.version();
         Py::new(py, SExpIter::new(self.tree.clone(), first, version))
     }
 
     /// First child node.  Raises `IndexError` if empty.
     #[getter]
     fn head(&self, py: Python<'_>) -> PyResult<Py<SExp>> {
-        let (child_id, version) = self.with_tree(|tree| {
+        let (child_id, version) = self.with_tree(py, |tree| {
             tree.first_child(self.node)
                 .map(|id| (id, tree.version()))
                 .ok_or_else(|| PyIndexError::new_err("expression is empty"))
@@ -238,7 +245,7 @@ impl SExp {
     /// Iterator over all children after the first.
     #[getter]
     fn tail(&self, py: Python<'_>) -> PyResult<Py<SExpIter>> {
-        let (second, version) = self.with_tree(|tree| {
+        let (second, version) = self.with_tree(py, |tree| {
             let second = tree
                 .first_child(self.node)
                 .and_then(|fc| tree.next_sibling(fc));
@@ -249,14 +256,14 @@ impl SExp {
 
     /// ``True`` if this is an atom (leaf) node.
     #[getter]
-    fn is_atom(&self) -> PyResult<bool> {
-        self.with_tree(|tree| Ok(tree.get(self.node).is_atom()))
+    fn is_atom(&self, py: Python<'_>) -> PyResult<bool> {
+        self.with_tree(py, |tree| Ok(tree.get(self.node).is_atom()))
     }
 
     /// String content of this atom node. Raises `TypeError` if this is a list.
     #[getter]
-    fn value(&self) -> PyResult<String> {
-        self.with_tree(|tree| match &tree.get(self.node).kind {
+    fn value(&self, py: Python<'_>) -> PyResult<String> {
+        self.with_tree(py, |tree| match &tree.get(self.node).kind {
             NodeType::Atom(atom) => Ok(atom.as_str().to_owned()),
             NodeType::List => Err(PyTypeError::new_err("list node has no value")),
         })
@@ -264,8 +271,8 @@ impl SExp {
 
     /// Set the string content. Raises `TypeError` if this is a list.
     #[setter]
-    fn set_value(&self, value: &str) -> PyResult<()> {
-        self.with_tree_mut(|tree| {
+    fn set_value(&self, py: Python<'_>, value: &str) -> PyResult<()> {
+        self.with_tree_mut(py, |tree| {
             let node = tree.get_mut(self.node);
             if !node.is_atom() {
                 return Err(PyTypeError::new_err("cannot set value on a list node"));
@@ -278,7 +285,7 @@ impl SExp {
     /// Parent node, or ``None`` if this is the root.
     #[getter]
     fn parent(&self, py: Python<'_>) -> PyResult<Option<Py<SExp>>> {
-        self.with_tree(|tree| match tree.parent(self.node) {
+        self.with_tree(py, |tree| match tree.parent(self.node) {
             None => Ok(None),
             Some(parent_id) => Ok(Some(Py::new(
                 py,
@@ -289,7 +296,7 @@ impl SExp {
 
     /// Allocate a new unattached atom node in this tree.
     fn new_atom(&self, py: Python<'_>, value: &str) -> PyResult<Py<SExp>> {
-        let (id, version) = self.with_tree_mut(|tree| {
+        let (id, version) = self.with_tree_mut(py, |tree| {
             let id = tree.alloc_atom(value);
             Ok((id, tree.version()))
         })?;
@@ -298,7 +305,7 @@ impl SExp {
 
     /// Allocate a new unattached empty list node in this tree.
     fn new_list(&self, py: Python<'_>) -> PyResult<Py<SExp>> {
-        let (id, version) = self.with_tree_mut(|tree| {
+        let (id, version) = self.with_tree_mut(py, |tree| {
             let id = tree.alloc_list();
             Ok((id, tree.version()))
         })?;
@@ -306,39 +313,42 @@ impl SExp {
     }
 
     /// Append ``child`` as the last child of this node.
-    fn append(&self, child: &SExp) -> PyResult<()> {
+    fn append(&self, py: Python<'_>, child: &SExp) -> PyResult<()> {
         assert_same_tree(&self.tree, &child.tree)?;
-        self.with_tree_mut(|tree| {
+        self.with_tree_mut(py, |tree| {
             mutation::append(tree, self.node, child.node);
             Ok(())
         })
     }
 
     /// Insert ``child`` as the first child of this node.
-    fn prepend(&self, child: &SExp) -> PyResult<()> {
+    fn prepend(&self, py: Python<'_>, child: &SExp) -> PyResult<()> {
         assert_same_tree(&self.tree, &child.tree)?;
-        self.with_tree_mut(|tree| {
+        self.with_tree_mut(py, |tree| {
             mutation::prepend(tree, self.node, child.node);
             Ok(())
         })
     }
 
     /// Insert ``child`` immediately after ``after``. Pass ``None`` to prepend.
-    fn insert_after(&self, after: Option<&SExp>, child: &SExp) -> PyResult<()> {
+    fn insert_after(&self, py: Python<'_>, after: Option<&SExp>, child: &SExp) -> PyResult<()> {
         assert_same_tree(&self.tree, &child.tree)?;
         if let Some(after) = after {
             assert_same_tree(&self.tree, &after.tree)?;
         }
         let after_id = after.map(|a| a.node);
-        self.with_tree_mut(|tree| {
+        self.with_tree_mut(py, |tree| {
+            if after.is_some_and(|a| a.is_stale(tree)) {
+                return Err(stale_error());
+            }
             mutation::insert_after(tree, self.node, after_id, child.node);
             Ok(())
         })
     }
 
     /// Remove this node and its entire subtree. Raises `ValueError` on the root.
-    fn remove(&self) -> PyResult<()> {
-        self.with_tree_mut(|tree| {
+    fn remove(&self, py: Python<'_>) -> PyResult<()> {
+        self.with_tree_mut(py, |tree| {
             if self.node == tree.root() {
                 return Err(PyValueError::new_err("cannot remove the root node"));
             }
@@ -351,13 +361,13 @@ impl SExp {
     /// Deep-copy this subtree into a new independent `SExp`.
     #[pyo3(name = "clone")]
     fn clone_node(&self, py: Python<'_>) -> PyResult<Py<SExp>> {
-        let new_tree = self.with_tree(|tree| Ok(clone_subtree(tree, self.node)))?;
+        let new_tree = self.with_tree(py, |tree| Ok(clone_subtree(tree, self.node)))?;
         Py::new(py, SExp::from_tree(new_tree))
     }
 
     /// Remove this subtree and return it as a new `SExp`. Raises `ValueError` on the root.
     fn extract(&self, py: Python<'_>) -> PyResult<Py<SExp>> {
-        let new_tree = self.with_tree_mut(|tree| {
+        let new_tree = self.with_tree_mut(py, |tree| {
             if self.node == tree.root() {
                 return Err(PyValueError::new_err("cannot extract the root node"));
             }

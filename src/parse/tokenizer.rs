@@ -22,45 +22,52 @@ impl<'input> Tokenizer<'input> {
     }
 }
 
-/// Returns `true` for the four ASCII whitespace characters the tokenizer skips.
-fn is_whitespace(character: char) -> bool {
-    matches!(character, ' ' | '\t' | '\n' | '\r')
-}
-
-/// Returns `true` for any character that may appear inside an atom token.
-fn is_atom_char(character: char) -> bool {
-    !is_whitespace(character) && character != '(' && character != ')'
-}
+/// Per-byte classification table.
+const STOP: [u8; 256] = {
+    let mut t = [0u8; 256];
+    t[b'(' as usize] = 1;
+    t[b')' as usize] = 1;
+    t[b' ' as usize] = 2;
+    t[b'\t' as usize] = 2;
+    t[b'\n' as usize] = 2;
+    t[b'\r' as usize] = 2;
+    t
+};
 
 impl<'input> Iterator for Tokenizer<'input> {
     type Item = Token<'input>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Token<'input>> {
-        // Skip leading whitespace.
-        let start = self
-            .remaining
-            .find(|c: char| !is_whitespace(c))
-            .unwrap_or(self.remaining.len());
-        self.remaining = &self.remaining[start..];
+        let bytes = self.remaining.as_bytes();
 
-        let first = self.remaining.chars().next()?;
+        let start = bytes
+            .iter()
+            .position(|&b| STOP[b as usize] < 2)
+            .unwrap_or(bytes.len());
 
-        match first {
-            '(' => {
-                self.remaining = &self.remaining[1..];
+        if start == bytes.len() {
+            self.remaining = &self.remaining[start..];
+            return None;
+        }
+
+        match bytes[start] {
+            b'(' => {
+                self.remaining = &self.remaining[start + 1..];
                 Some(Token::LeftParen)
             }
-            ')' => {
-                self.remaining = &self.remaining[1..];
+            b')' => {
+                self.remaining = &self.remaining[start + 1..];
                 Some(Token::RightParen)
             }
             _ => {
-                let end = self
-                    .remaining
-                    .find(|c: char| !is_atom_char(c))
-                    .unwrap_or(self.remaining.len());
-                let atom = &self.remaining[..end];
-                self.remaining = &self.remaining[end..];
+                let rest = &bytes[start..];
+                let end = rest
+                    .iter()
+                    .position(|&b| STOP[b as usize] != 0)
+                    .unwrap_or(rest.len());
+                let atom = &self.remaining[start..start + end];
+                self.remaining = &self.remaining[start + end..];
                 Some(Token::Atom(atom))
             }
         }

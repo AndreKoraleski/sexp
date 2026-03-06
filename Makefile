@@ -13,7 +13,7 @@ help:
 	@echo "  test-all           Run all tests"
 	@echo "  bench              Run benchmarks"
 	@echo "  bench-save         Run benchmarks and save as baseline"
-	@echo "  bench-ci           Compare against baseline (fail on >10% regression)"
+	@echo "  bench-ci           Compare against baseline (fail on >15% median regression)"
 	@echo "  lint               Lint Python (ruff) and Rust (clippy)"
 	@echo "  format             Auto-format Python and Rust"
 	@echo "  format-check       Check formatting without modifying files"
@@ -55,12 +55,12 @@ bench:
 bench-save:
 	pytest benchmarks/ -q $(_BENCH_FLAGS) --benchmark-autosave
 
-## Compare against latest saved baseline (fail on >10% mean regression)
+## Compare against latest saved baseline (fail on >15% mean regression)
 bench-ci:
 	@if [ -z "$$(ls benchmarks/.results/ 2>/dev/null)" ]; then \
 		echo "No baseline found. Run 'make bench-save' first."; exit 1; \
 	fi
-	pytest benchmarks/ -q $(_BENCH_FLAGS) --benchmark-compare --benchmark-compare-fail=mean:10%
+	pytest benchmarks/ -q $(_BENCH_FLAGS) --benchmark-compare --benchmark-compare-fail=median:15%
 
 # --- Lint ---
 

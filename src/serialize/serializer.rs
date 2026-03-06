@@ -8,9 +8,7 @@ use crate::core::{
 /// Atoms are written as-is. Lists are written as `(child1 child2 ...)` with a single space between
 /// siblings. An empty list serializes as `()`.
 pub fn serialize_node(tree: &Tree, node: NodeId) -> String {
-    // Heuristic: each node contributes ~5 chars on average (atom text + space,
-    // or two parens + spaces for lists).  Pre-allocating avoids reallocs.
-    let mut output = String::with_capacity(tree.len() * 5);
+    let mut output = String::with_capacity(tree.len() * 8);
     write_node(tree, node, &mut output, false);
     output
 }
@@ -56,6 +54,7 @@ fn write_node(tree: &Tree, node: NodeId, output: &mut String, needs_space: bool)
                     stack.push(Frame::Close);
 
                     let mut cursor = tree.last_child(id);
+
                     while let Some(child_id) = cursor {
                         let prev = tree.prev_sibling(child_id);
                         stack.push(Frame::Node {

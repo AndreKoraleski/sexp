@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use std::{cell::UnsafeCell, sync::Arc};
 
-use parking_lot::RwLock;
-use pyo3::{PyErr, PyResult, exceptions::PyRuntimeError};
+use pyo3::{PyErr, PyResult, Python, exceptions::PyRuntimeError};
 
 use crate::{
     core::{
@@ -13,8 +12,34 @@ use crate::{
 
 use super::error::ParseError as PyParseError;
 
-/// Reference-counted handle to a shared Tree.
-pub(super) type SharedTree = Arc<RwLock<Tree>>;
+/// `Tree` wrapped in `UnsafeCell` for lock-free shared ownership under the GIL.
+pub(super) struct GilTree(UnsafeCell<Tree>);
+
+unsafe impl Send for GilTree {}
+unsafe impl Sync for GilTree {}
+
+impl GilTree {
+    pub(super) fn new(tree: Tree) -> Self {
+        Self(UnsafeCell::new(tree))
+    }
+
+    /// Shared reference to the inner tree. Caller must hold the GIL.
+    #[inline]
+    pub(super) fn get<'a>(&'a self, _py: Python<'_>) -> &'a Tree {
+        unsafe { &*self.0.get() }
+    }
+
+    /// Exclusive reference to the inner tree. Caller must hold the GIL and must not hold any live
+    /// `&Tree` borrow on the same `GilTree`.
+    #[inline]
+    #[allow(clippy::mut_from_ref)]
+    pub(super) fn get_mut<'a>(&'a self, _py: Python<'_>) -> &'a mut Tree {
+        unsafe { &mut *self.0.get() }
+    }
+}
+
+/// Reference-counted, GIL-protected handle to a shared `Tree`.
+pub(super) type SharedTree = Arc<GilTree>;
 
 pub(super) fn stale_error() -> PyErr {
     PyRuntimeError::new_err("stale node reference")
@@ -24,7 +49,7 @@ pub(super) fn rust_parse_error(error: RustParseError) -> PyErr {
     PyParseError::new_err(error.to_string())
 }
 
-/// Checks that `tree` and `child_tree` share the same allocation.
+/// Checks that `tree` and `other` share the same allocation.
 pub(super) fn assert_same_tree(tree: &SharedTree, other: &SharedTree) -> PyResult<()> {
     if !Arc::ptr_eq(tree, other) {
         Err(pyo3::exceptions::PyValueError::new_err(

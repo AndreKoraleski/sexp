@@ -88,6 +88,19 @@ class TestStaleAfterRemove:
         with pytest.raises(RuntimeError, match="stale"):
             _ = inner_a.value
 
+    def test_str_subscript(self) -> None:
+        _tree, a, b, _c, _d = _four()
+        b.remove()
+        with pytest.raises(RuntimeError, match="stale"):
+            _ = a["any"]
+
+    def test_insert_after(self) -> None:
+        tree, a, b, _c, _d = _four()
+        new_node = tree.new_atom("z")
+        b.remove()
+        with pytest.raises(RuntimeError, match="stale"):
+            tree.insert_after(a, new_node)
+
 
 class TestStaleAfterExtract:
     def test_value_after_extract(self) -> None:

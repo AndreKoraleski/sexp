@@ -1,11 +1,10 @@
 use std::marker::PhantomData;
-use thunderdome::{Arena, Index};
 
-/// A typed, generational handle into a [`Slab<T>`].
+/// A typed index into a [`Slab<T>`].
 ///
-/// A key becomes stale when the value it refers to is removed. Accessing a
-/// stale key via [`Slab::get`] returns `None`, via indexing it panics.
-pub struct Key<T>(Index, PhantomData<fn() -> T>);
+/// Internally a `u32` offset into the slot `Vec`. Valid as long as the slot
+/// has not been freed and re-occupied by a different value.
+pub struct Key<T>(u32, PhantomData<fn() -> T>);
 
 impl<T> Clone for Key<T> {
     fn clone(&self) -> Self {
@@ -31,57 +30,74 @@ impl<T> std::hash::Hash for Key<T> {
 
 impl<T> std::fmt::Debug for Key<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Key({:?})", self.0)
+        write!(f, "Key({})", self.0)
     }
 }
 
-/// A generational arena keyed by [`Key<T>`].
-pub struct Slab<T>(Arena<T>);
+/// A dense, reuse-capable arena keyed by [`Key<T>`].
+///
+/// Backed by a `Vec<Option<T>>` and a `Vec<u32>` free list.  Each access is a single array bounds
+/// check plus an `Option` discriminant test.
+pub struct Slab<T> {
+    slots: Vec<Option<T>>,
+    free: Vec<u32>,
+}
 
 impl<T> Slab<T> {
     /// Creates an empty slab.
     pub fn new() -> Self {
-        Self(Arena::new())
+        Self {
+            slots: Vec::new(),
+            free: Vec::new(),
+        }
     }
 
     /// Creates an empty slab with at least the given capacity.
-    pub fn with_capacity(initial_capacity: usize) -> Self {
-        Self(Arena::with_capacity(initial_capacity))
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            slots: Vec::with_capacity(capacity),
+            free: Vec::new(),
+        }
     }
 
     /// Inserts a value and returns a key for it.
     pub fn insert(&mut self, value: T) -> Key<T> {
-        Key(self.0.insert(value), PhantomData)
+        if let Some(idx) = self.free.pop() {
+            self.slots[idx as usize] = Some(value);
+            Key(idx, PhantomData)
+        } else {
+            let idx = self.slots.len() as u32;
+            self.slots.push(Some(value));
+            Key(idx, PhantomData)
+        }
     }
 
     /// Removes the value at `key` and returns it, or `None` if the key is stale.
     pub fn remove(&mut self, key: Key<T>) -> Option<T> {
-        self.0.remove(key.0)
+        let slot = self.slots.get_mut(key.0 as usize)?;
+        let value = slot.take()?;
+        self.free.push(key.0);
+        Some(value)
     }
 
     /// Returns a reference to the value at `key`, or `None` if the key is stale.
     pub fn get(&self, key: Key<T>) -> Option<&T> {
-        self.0.get(key.0)
+        self.slots.get(key.0 as usize)?.as_ref()
     }
 
     /// Returns a mutable reference to the value at `key`, or `None` if the key is stale.
     pub fn get_mut(&mut self, key: Key<T>) -> Option<&mut T> {
-        self.0.get_mut(key.0)
+        self.slots.get_mut(key.0 as usize)?.as_mut()
     }
 
-    /// Returns the number of values in the slab.
+    /// Returns the number of live values in the slab.
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.slots.len() - self.free.len()
     }
 
-    /// Returns `true` if the slab contains no values.
+    /// Returns `true` if the slab contains no live values.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Returns the number of values the slab can hold without reallocating.
-    pub fn capacity(&self) -> usize {
-        self.0.capacity()
+        self.len() == 0
     }
 }
 
@@ -93,7 +109,10 @@ impl<T> Default for Slab<T> {
 
 impl<T: Clone> Clone for Slab<T> {
     fn clone(&self) -> Self {
-        Slab(self.0.clone())
+        Slab {
+            slots: self.slots.clone(),
+            free: self.free.clone(),
+        }
     }
 }
 
@@ -102,18 +121,18 @@ impl<T> std::ops::Index<Key<T>> for Slab<T> {
 
     /// # Panics
     ///
-    /// Panics if `key` is stale.
+    /// Panics if `key` is stale or out of range.
     fn index(&self, key: Key<T>) -> &T {
-        &self.0[key.0]
+        self.slots[key.0 as usize].as_ref().expect("stale key")
     }
 }
 
 impl<T> std::ops::IndexMut<Key<T>> for Slab<T> {
     /// # Panics
     ///
-    /// Panics if `key` is stale.
+    /// Panics if `key` is stale or out of range.
     fn index_mut(&mut self, key: Key<T>) -> &mut T {
-        &mut self.0[key.0]
+        self.slots[key.0 as usize].as_mut().expect("stale key")
     }
 }
 
@@ -138,12 +157,12 @@ mod tests {
     }
 
     #[test]
-    fn removed_key_does_not_alias_reused_slot() {
+    fn freed_slot_is_reused_and_old_key_aliases_new_value() {
         let mut slab: Slab<u32> = Slab::new();
         let first_key = slab.insert(1);
         slab.remove(first_key);
         let _second_key = slab.insert(2);
-        assert!(slab.get(first_key).is_none());
+        assert_eq!(slab.get(first_key), Some(&2));
     }
 
     #[test]

@@ -95,16 +95,6 @@ impl Tree {
         &mut self.nodes[id]
     }
 
-    /// Returns a reference to the node at `id`, or `None` if the id is stale.
-    pub fn try_get(&self, id: NodeId) -> Option<&Node> {
-        self.nodes.get(id)
-    }
-
-    /// Returns a mutable reference to the node at `id`, or `None` if the id is stale.
-    pub fn try_get_mut(&mut self, id: NodeId) -> Option<&mut Node> {
-        self.nodes.get_mut(id)
-    }
-
     /// Returns the number of nodes currently in the tree, including the root.
     pub fn len(&self) -> usize {
         self.nodes.len()

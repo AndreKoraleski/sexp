@@ -8,7 +8,7 @@ from pytest_benchmark.fixture import BenchmarkFixture
 import sexp
 from benchmarks.inputs import LARGE, MEDIUM, SMALL
 
-_ROUNDS = 200
+_ROUNDS = 1000
 
 
 def _tree_and_atom() -> tuple[tuple[sexp.SExp, sexp.SExp], dict[str, Any]]:

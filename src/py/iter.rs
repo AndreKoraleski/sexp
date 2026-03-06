@@ -42,18 +42,11 @@ impl SExpIter {
             None => return Ok(None),
             Some(id) => id,
         };
-        let guard = self.tree.read();
-
-        if guard.version() != self.version {
+        let tree = self.tree.get(py);
+        if tree.version() != self.version {
             return Err(stale_error());
         }
-        let next_sibling = match guard.try_get(current) {
-            None => return Err(stale_error()),
-            Some(n) => n.next_sibling,
-        };
-
-        self.next = next_sibling;
-        drop(guard);
+        self.next = tree.get(current).next_sibling;
         Py::new(
             py,
             SExp::from_shared(Arc::clone(&self.tree), current, self.version),

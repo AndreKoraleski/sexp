@@ -9,5 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.28.2"
-thunderdome = "0.6.1"
-parking_lot = "0.12.5"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"

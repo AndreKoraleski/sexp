@@ -43,6 +43,11 @@ class TestIntIndex:
         with pytest.raises(IndexError):
             _ = tree[1][5]
 
+    def test_atom_node_int_raises(self) -> None:
+        tree = sexp.parse("(a b c)")
+        with pytest.raises(IndexError):
+            _ = tree[0][0]
+
 
 class TestStrKey:
     def test_returns_matching_child_list(self) -> None:
@@ -61,6 +66,15 @@ class TestStrKey:
     def test_chained_access(self) -> None:
         tree = sexp.parse("(player (pos 1 2) (vel 3 4))")
         assert repr(tree["vel"][1]) == "3"
+
+    def test_str_key_matches_direct_atom_child(self) -> None:
+        tree = sexp.parse("(a b c)")
+        assert tree["b"].value == "b"
+
+    def test_str_key_not_found_raises_key_error(self) -> None:
+        tree = sexp.parse("()")
+        with pytest.raises(KeyError):
+            _ = tree["x"]
 
 
 class TestSlice:
@@ -118,4 +132,4 @@ class TestInvalidKey:
     def test_float_raises_type_error(self) -> None:
         tree = sexp.parse("(a b)")
         with pytest.raises(TypeError):
-            _ = tree[1.5]
+            _ = tree[1.5]  # type: ignore
