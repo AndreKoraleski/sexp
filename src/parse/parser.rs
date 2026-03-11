@@ -20,8 +20,17 @@ use super::{
 /// Returns a [`ParseError`] if the input is structurally malformed: an unclosed parenthesis, a
 /// stray closing parenthesis, or more than one top-level form.
 pub fn parse(input: &str) -> Result<Tree, ParseError> {
+    // Capacity heuristic: a typical node costs ~3 bytes of input (e.g. `a `, `( `, `)`),
+    // so dividing by 3 gives a reasonable first-guess that avoids most reallocations without
+    // over-allocating. The actual ratio varies: dense nesting like `(((a)))` yields ~1.75
+    // bytes/node; wide flat lists like `(a b c ...)` yield ~2 bytes/node. If the guess is wrong the
+    // slab simply reallocates; this is a pure performance hint.
     let mut nodes: Slab<Node> = Slab::with_capacity(input.len() / 3);
+    // 16 covers the maximum nesting depth of virtually all real-world S-expression inputs (Lisp
+    // source, config files, data formats). If a pathological input exceeds this the Vec will
+    // reallocate naturally; this merely avoids that in the common case.
     let mut open_lists: Vec<NodeId> = Vec::with_capacity(16);
+    // Nearly all valid S-expressions have exactly one top-level form; pre-size for that.
     let mut top_level: Vec<NodeId> = Vec::with_capacity(1);
 
     for token in Tokenizer::new(input) {

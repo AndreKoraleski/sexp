@@ -1,5 +1,23 @@
 use super::{node::NodeId, tree::Tree};
 
+/// Returns `true` when linking `child` under `parent` would create a cycle, i.e. `child` is
+/// already an ancestor of `parent` (meaning `parent` already lives inside `child`'s subtree).
+fn would_create_cycle(tree: &Tree, parent: NodeId, child: NodeId) -> bool {
+    // Fast path: an unattached node has no descendants and cannot be anyone's
+    // ancestor. This covers the common case of appending a freshly-allocated node.
+    if tree.nodes[child].parent.is_none() {
+        return parent == child; // only a cycle if a node is attached under itself
+    }
+    let mut cursor = Some(parent);
+    while let Some(id) = cursor {
+        if id == child {
+            return true;
+        }
+        cursor = tree.nodes[id].parent;
+    }
+    false
+}
+
 /// Appends `child` as the last child of `parent`.
 ///
 /// If `child` is already attached elsewhere in the tree it is first detached from its current
@@ -9,6 +27,10 @@ use super::{node::NodeId, tree::Tree};
 ///
 /// Panics if either id is stale.
 pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
+    assert!(
+        !would_create_cycle(tree, parent, child),
+        "append would create a cycle: child is an ancestor of parent"
+    );
     if tree.nodes[child].parent.is_some() {
         unlink(tree, child);
     }
@@ -24,6 +46,7 @@ pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
     }
     tree.nodes[parent].last_child = Some(child);
     tree.nodes[parent].child_count += 1;
+    tree.bump_version();
 }
 
 /// Inserts `child` as the first child of `parent`.
@@ -34,6 +57,10 @@ pub fn append(tree: &mut Tree, parent: NodeId, child: NodeId) {
 ///
 /// Panics if either id is stale.
 pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
+    assert!(
+        !would_create_cycle(tree, parent, child),
+        "prepend would create a cycle: child is an ancestor of parent"
+    );
     if tree.nodes[child].parent.is_some() {
         unlink(tree, child);
     }
@@ -49,6 +76,7 @@ pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
     }
     tree.nodes[parent].first_child = Some(child);
     tree.nodes[parent].child_count += 1;
+    tree.bump_version();
 }
 
 /// Inserts `child` immediately after `after` within the same parent.
@@ -61,6 +89,10 @@ pub fn prepend(tree: &mut Tree, parent: NodeId, child: NodeId) {
 ///
 /// Panics if any id is stale.
 pub fn insert_after(tree: &mut Tree, parent: NodeId, after: Option<NodeId>, child: NodeId) {
+    assert!(
+        !would_create_cycle(tree, parent, child),
+        "insert_after would create a cycle: child is an ancestor of parent"
+    );
     if tree.nodes[child].parent.is_some() {
         unlink(tree, child);
     }
@@ -80,6 +112,7 @@ pub fn insert_after(tree: &mut Tree, parent: NodeId, after: Option<NodeId>, chil
                 None => tree.nodes[parent].last_child = Some(child),
             }
             tree.nodes[parent].child_count += 1;
+            tree.bump_version();
         }
     }
 }
