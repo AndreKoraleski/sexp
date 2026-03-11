@@ -10,7 +10,9 @@ pub struct Tree {
     pub(super) root: NodeId,
     pub(crate) version: u64,
     pub(crate) bare: bool,
-    pub(crate) repr_cache: Option<(NodeId, u64, Arc<str>)>,
+    /// Boxed so `None` costs exactly one pointer word (8 bytes via niche optimisation)
+    /// rather than ~32 bytes inline. No heap allocation until the first `repr()` call.
+    pub(crate) repr_cache: Option<Box<(NodeId, u64, Arc<str>)>>,
 }
 
 impl Tree {
@@ -71,8 +73,8 @@ impl Tree {
     /// Returns the cached serialization of `node` if still valid for the current version.
     pub(crate) fn cached_repr(&self, node: NodeId) -> Option<String> {
         match &self.repr_cache {
-            Some((cached_node, v, s)) if *v == self.version && *cached_node == node => {
-                Some(s.to_string())
+            Some(entry) if entry.1 == self.version && entry.0 == node => {
+                Some(entry.2.to_string())
             }
             _ => None,
         }
@@ -80,7 +82,7 @@ impl Tree {
 
     /// Stores `text` as the cached serialization of `node` at the current version.
     pub(crate) fn set_repr_cache(&mut self, node: NodeId, text: Arc<str>) {
-        self.repr_cache = Some((node, self.version, text));
+        self.repr_cache = Some(Box::new((node, self.version, text)));
     }
 
     /// Returns the id of the root node.

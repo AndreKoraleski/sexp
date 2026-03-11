@@ -3,6 +3,11 @@ use super::{node::NodeId, tree::Tree};
 /// Returns `true` when linking `child` under `parent` would create a cycle, i.e. `child` is
 /// already an ancestor of `parent` (meaning `parent` already lives inside `child`'s subtree).
 fn would_create_cycle(tree: &Tree, parent: NodeId, child: NodeId) -> bool {
+    // Fast path: an unattached node has no descendants and cannot be anyone's
+    // ancestor. This covers the common case of appending a freshly-allocated node.
+    if tree.nodes[child].parent.is_none() {
+        return parent == child; // only a cycle if a node is attached under itself
+    }
     let mut cursor = Some(parent);
     while let Some(id) = cursor {
         if id == child {
