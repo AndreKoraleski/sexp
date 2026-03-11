@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use pyo3::{
     exceptions::{PyIndexError, PyTypeError, PyValueError},
@@ -34,7 +35,13 @@ use super::{
 pub struct SExp {
     pub(super) tree: SharedTree,
     pub(super) node: NodeId,
-    pub(super) version: u64,
+    /// Snapshot of the tree version at the time this handle was created or last mutated.
+    /// `AtomicU64` allows mutating methods (which take `&self` due to PyO3 constraints) to
+    /// refresh the snapshot after each structural change, so the handle remains valid for
+    /// subsequent calls. `Relaxed` ordering is sufficient: the GIL already serialises all
+    /// tree access. Iterators (`SExpIter`) use a plain `u64` and deliberately do *not* refresh -
+    /// they must become stale to detect concurrent mutations.
+    pub(super) version: AtomicU64,
 }
 
 impl SExp {
@@ -43,7 +50,7 @@ impl SExp {
         let version = tree.version();
         SExp {
             node,
-            version,
+            version: AtomicU64::new(version),
             tree: Arc::new(GilTree::new(tree)),
         }
     }
@@ -52,14 +59,14 @@ impl SExp {
         SExp {
             tree,
             node,
-            version,
+            version: AtomicU64::new(version),
         }
     }
 
     /// Returns true if this handle is stale (must not be used). The root node is always considered
     /// valid.
     pub(super) fn is_stale(&self, tree: &Tree) -> bool {
-        self.node != tree.root() && self.version != tree.version()
+        self.node != tree.root() && self.version.load(Ordering::Relaxed) != tree.version()
     }
 
     fn with_tree<F, T>(&self, py: Python<'_>, f: F) -> PyResult<T>
@@ -77,11 +84,23 @@ impl SExp {
     where
         F: FnOnce(&mut Tree) -> PyResult<T>,
     {
-        let tree = self.tree.get_mut(py);
-        if self.is_stale(tree) {
-            return Err(stale_error());
+        let result = {
+            let tree = self.tree.get_mut(py);
+            if self.is_stale(tree) {
+                return Err(stale_error());
+            }
+            f(tree)?
+        };
+        // Only refresh our version snapshot if this node is still live in the tree.
+        // After remove()/extract() the slab slot is freed; leaving the snapshot stale ensures
+        // subsequent accesses correctly raise RuntimeError.
+        // Iterators (SExpIter) use a plain u64 and never refresh - they must go stale on every
+        // structural change.
+        let tree = self.tree.get(py);
+        if tree.contains_node(self.node) {
+            self.version.store(tree.version(), Ordering::Relaxed);
         }
-        f(tree)
+        Ok(result)
     }
 
     fn collect_children(&self, py: Python<'_>) -> PyResult<Vec<Py<SExp>>> {
@@ -105,11 +124,30 @@ impl SExp {
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        self.with_tree(py, |tree| {
+        // Fast path: return cached result without re-serializing.
+        {
+            let tree = self.tree.get(py);
+            if self.is_stale(tree) {
+                return Err(stale_error());
+            }
             if tree.is_bare() && self.node == tree.root() && tree.first_child(self.node).is_none() {
                 return Ok(String::new());
             }
-            Ok(crate::serialize::serialize_node(tree, self.node))
+            if let Some(cached) = tree.cached_repr(self.node) {
+                return Ok(cached);
+            }
+        }
+        // Slow path: serialize, move buffer into Box<str> for the cache (zero-copy), then produce
+        // the return String from the cached copy.
+        self.with_tree_mut(py, |tree| {
+            let s = crate::serialize::serialize_node(tree, self.node);
+            // into_boxed_str() reuses the String's heap buffer (no copy, no new alloc) when the
+            // String has no excess capacity, which is the common case since serialize_node
+            // pre-allocates with_capacity.
+            let boxed = s.into_boxed_str();
+            let result = boxed.to_string();
+            tree.set_repr_cache(self.node, boxed);
+            Ok(result)
         })
     }
 
@@ -158,7 +196,7 @@ impl SExp {
             }
 
             if other_sexp.is_stale(tree) {
-                return Ok(false);
+                return Err(stale_error());
             }
             return Ok(ChildIter::new(tree, self.node).any(|id| id == other_sexp.node));
         }
@@ -273,11 +311,15 @@ impl SExp {
     #[setter]
     fn set_value(&self, py: Python<'_>, value: &str) -> PyResult<()> {
         self.with_tree_mut(py, |tree| {
-            let node = tree.get_mut(self.node);
-            if !node.is_atom() {
-                return Err(PyTypeError::new_err("cannot set value on a list node"));
+            {
+                let node = tree.get_mut(self.node);
+                if !node.is_atom() {
+                    return Err(PyTypeError::new_err("cannot set value on a list node"));
+                }
+                node.kind = NodeType::Atom(Atom::new(value));
             }
-            node.kind = NodeType::Atom(Atom::new(value));
+            // Clear the repr cache so the next __repr__ re-serializes.
+            tree.clear_repr_cache();
             Ok(())
         })
     }

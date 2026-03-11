@@ -41,6 +41,8 @@ impl<'input> Iterator for Tokenizer<'input> {
     fn next(&mut self) -> Option<Token<'input>> {
         let bytes = self.remaining.as_bytes();
 
+        // Skip leading whitespace: advance past every byte whose class is 2.
+        // Class 0 (regular) and class 1 (bracket) are both < 2, so they stop the scan.
         let start = bytes
             .iter()
             .position(|&b| STOP[b as usize] < 2)
@@ -62,6 +64,8 @@ impl<'input> Iterator for Tokenizer<'input> {
             }
             _ => {
                 let rest = &bytes[start..];
+                // Find the end of the atom: the first byte that is a bracket (class 1) or
+                // whitespace (class 2). Both have STOP != 0.
                 let end = rest
                     .iter()
                     .position(|&b| STOP[b as usize] != 0)

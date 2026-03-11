@@ -8,6 +8,11 @@ pub struct Tree {
     pub(super) root: NodeId,
     pub(crate) version: u64,
     pub(crate) bare: bool,
+    /// Cached serialization `(node_id, version, text)`. `None` until the first `repr()` call.
+    /// The outer `Box` keeps the struct small (pointer-sized `None` via niche opt).
+    /// The inner `Box<str>` rather than `Arc<str>`: the string is never shared - the GIL
+    /// ensures single-threaded access, so `Arc`'s atomic refcount buys nothing.
+    pub(crate) repr_cache: Option<Box<(NodeId, u64, Box<str>)>>,
 }
 
 impl Tree {
@@ -20,6 +25,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 
@@ -32,6 +38,7 @@ impl Tree {
             root,
             version: 0,
             bare: true,
+            repr_cache: None,
         }
     }
 
@@ -44,6 +51,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 
@@ -60,6 +68,39 @@ impl Tree {
     /// Increments the version, invalidating all non-root handles created before this call.
     pub(crate) fn bump_version(&mut self) {
         self.version += 1;
+    }
+
+    /// Returns the cached serialization of `node` if still valid for the current version.
+    /// On a hit, `to_string()` allocates a new `String` from the cached bytes - unavoidable
+    /// because PyO3's `__repr__` requires an owned `String`.
+    pub(crate) fn cached_repr(&self, node: NodeId) -> Option<String> {
+        match &self.repr_cache {
+            Some(entry) if entry.1 == self.version && entry.0 == node => Some(entry.2.to_string()),
+            _ => None,
+        }
+    }
+
+    /// Stores `text` as the cached serialization of `node` at the current version.
+    pub(crate) fn set_repr_cache(&mut self, node: NodeId, text: Box<str>) {
+        self.repr_cache = Some(Box::new((node, self.version, text)));
+    }
+
+    /// Clears the repr cache without bumping the tree version.
+    ///
+    /// Use this for mutations that do not change node identity (e.g. `set_value`): the
+    /// cache must be invalidated so the next `__repr__` re-serializes, but other handles pointing
+    /// at the same node should not become stale.
+    pub(crate) fn clear_repr_cache(&mut self) {
+        self.repr_cache = None;
+    }
+
+    /// Returns `true` if `id` still refers to a live node in this tree.
+    ///
+    /// Used by `with_tree_mut` to decide whether to refresh a handle's version snapshot: after
+    /// `remove` / `extract` the slot is freed, so the handle should remain stale rather than being
+    /// silently renewed.
+    pub(crate) fn contains_node(&self, id: NodeId) -> bool {
+        self.nodes.get(id).is_some()
     }
 
     /// Returns the id of the root node.
@@ -140,6 +181,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 }

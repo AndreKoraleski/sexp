@@ -1,6 +1,6 @@
 # sexp
 
-[![Build](https://github.com/AndreKoraleski/sexp/actions/workflows/publish.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/publish.yml)
+[![Release](https://github.com/AndreKoraleski/sexp/actions/workflows/publish.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/publish.yml)
 [![Test](https://github.com/AndreKoraleski/sexp/actions/workflows/test.yml/badge.svg)](https://github.com/AndreKoraleski/sexp/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/sexp)](https://pypi.org/project/sexp/)
 [![Python](https://img.shields.io/pypi/pyversions/sexp)](https://pypi.org/project/sexp/)

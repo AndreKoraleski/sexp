@@ -8,6 +8,11 @@ use crate::core::{
 /// Atoms are written as-is. Lists are written as `(child1 child2 ...)` with a single space between
 /// siblings. An empty list serializes as `()`.
 pub fn serialize_node(tree: &Tree, node: NodeId) -> String {
+    // Capacity heuristic: `tree.len()` counts nodes (not bytes). Each node contributes roughly its
+    // atom value + 1 separator byte, or 2 bytes for a pair of parens. Multiplying by 8 gives
+    // headroom for atoms averaging up to ~6 characters, which covers identifiers, short numbers,
+    // and keywords - the overwhelming majority of S-expression atoms in practice. For inputs with
+    // unusually long atoms the String will reallocate; for short atoms this over-allocates slightly.
     let mut output = String::with_capacity(tree.len() * 8);
     write_node(tree, node, &mut output, false);
     output

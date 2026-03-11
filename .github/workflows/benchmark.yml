@@ -55,7 +55,11 @@ jobs:
           restore-keys: |
             bench-${{ runner.os }}-
 
-      - name: Run benchmarks and check for regressions
+      - name: Run benchmarks and compare against baseline
+        # Comparison is informational only: the ~100 ns pedantic benchmarks have OS-jitter variance
+        # that routinely exceeds any fixed threshold (master-vs-master can show >50% swings on the
+        # same hardware).
+        # Regressions must be assessed manually from the printed table.
         if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-hit == 'true'
         run: |
           pytest benchmarks/ -q \
@@ -63,8 +67,7 @@ jobs:
             --benchmark-only \
             --benchmark-disable-gc \
             --benchmark-storage=benchmarks/.results \
-            --benchmark-compare \
-            --benchmark-compare-fail=median:15%
+            --benchmark-compare
 
       # --- master ---
       - name: Run benchmarks and save results

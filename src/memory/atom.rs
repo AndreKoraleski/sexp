@@ -4,6 +4,15 @@ use std::fmt;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Atom(AtomInner);
 
+// `Inline` stores `len: u8` (1 byte) + `buffer: [u8; INLINE_CAP]` bytes.
+// Setting INLINE_CAP = 15 makes the Inline variant exactly 16 bytes, which matches `Box<str>`
+// (pointer + length = 2 × usize = 16 bytes on 64-bit targets).  Both arms of the enum are therefore
+// the same size, so the compiler does not need to pad the smaller arm - the total enum size is 16
+// bytes + 1 byte discriminant (+ alignment padding), the smallest it can be while still holding a
+// heap pointer.
+//
+// The choice of 15 is therefore not arbitrary: bumping it to 16 would push Inline to 17 bytes and
+// the whole enum to 24 bytes, wasting 7 bytes on every heap-allocated atom.
 const INLINE_CAP: usize = 15;
 
 // Inner representation is sealed.
@@ -76,6 +85,49 @@ impl AsRef<str> for Atom {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Returns `true` if the atom is stored inline (stack-only, no heap allocation).
+    /// Only used in tests to verify the inline/owned split at the capacity boundary.
+    #[cfg(test)]
+    fn is_inline(atom: &Atom) -> bool {
+        matches!(atom.0, AtomInner::Inline { .. })
+    }
+
+    #[test]
+    fn max_inline_length_is_stored_inline() {
+        // A string of exactly INLINE_CAP bytes must NOT heap-allocate.
+        let s = "a".repeat(INLINE_CAP);
+        let atom = Atom::new(&s);
+        assert!(
+            is_inline(&atom),
+            "expected inline storage for {}-byte atom",
+            INLINE_CAP
+        );
+        assert_eq!(atom.as_str(), s);
+    }
+
+    #[test]
+    fn one_over_inline_cap_is_heap_allocated() {
+        // A string of INLINE_CAP + 1 bytes must spill to the heap.
+        let s = "a".repeat(INLINE_CAP + 1);
+        let atom = Atom::new(&s);
+        assert!(
+            !is_inline(&atom),
+            "expected heap storage for {}-byte atom",
+            INLINE_CAP + 1
+        );
+        assert_eq!(atom.as_str(), s);
+    }
+
+    #[test]
+    fn inline_cap_boundary_roundtrip_preserves_content() {
+        // Verify the full 15-byte inline buffer is read back correctly.
+        let s = "abcdefghijklmno"; // exactly 15 bytes
+        assert_eq!(s.len(), INLINE_CAP);
+        let atom = Atom::new(s);
+        assert!(is_inline(&atom));
+        assert_eq!(atom.as_str(), s);
+    }
 
     #[test]
     fn equal_atoms_compare_as_equal() {
