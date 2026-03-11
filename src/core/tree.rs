@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::node::{Node, NodeId};
 use crate::memory::{atom::Atom, slab::Slab};
 
@@ -8,6 +10,7 @@ pub struct Tree {
     pub(super) root: NodeId,
     pub(crate) version: u64,
     pub(crate) bare: bool,
+    pub(crate) repr_cache: Option<(NodeId, u64, Arc<str>)>,
 }
 
 impl Tree {
@@ -20,6 +23,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 
@@ -32,6 +36,7 @@ impl Tree {
             root,
             version: 0,
             bare: true,
+            repr_cache: None,
         }
     }
 
@@ -44,6 +49,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 
@@ -60,6 +66,21 @@ impl Tree {
     /// Increments the version, invalidating all non-root handles created before this call.
     pub(crate) fn bump_version(&mut self) {
         self.version += 1;
+    }
+
+    /// Returns the cached serialization of `node` if still valid for the current version.
+    pub(crate) fn cached_repr(&self, node: NodeId) -> Option<String> {
+        match &self.repr_cache {
+            Some((cached_node, v, s)) if *v == self.version && *cached_node == node => {
+                Some(s.to_string())
+            }
+            _ => None,
+        }
+    }
+
+    /// Stores `text` as the cached serialization of `node` at the current version.
+    pub(crate) fn set_repr_cache(&mut self, node: NodeId, text: Arc<str>) {
+        self.repr_cache = Some((node, self.version, text));
     }
 
     /// Returns the id of the root node.
@@ -140,6 +161,7 @@ impl Tree {
             root,
             version: 0,
             bare: false,
+            repr_cache: None,
         }
     }
 }

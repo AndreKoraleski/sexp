@@ -105,11 +105,24 @@ impl SExp {
     }
 
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
-        self.with_tree(py, |tree| {
+        // Fast path: return cached result without re-serializing.
+        {
+            let tree = self.tree.get(py);
+            if self.is_stale(tree) {
+                return Err(stale_error());
+            }
             if tree.is_bare() && self.node == tree.root() && tree.first_child(self.node).is_none() {
                 return Ok(String::new());
             }
-            Ok(crate::serialize::serialize_node(tree, self.node))
+            if let Some(cached) = tree.cached_repr(self.node) {
+                return Ok(cached);
+            }
+        }
+        // Slow path: serialize and populate cache.
+        self.with_tree_mut(py, |tree| {
+            let s = crate::serialize::serialize_node(tree, self.node);
+            tree.set_repr_cache(self.node, Arc::from(s.as_str()));
+            Ok(s)
         })
     }
 
@@ -158,7 +171,7 @@ impl SExp {
             }
 
             if other_sexp.is_stale(tree) {
-                return Ok(false);
+                return Err(stale_error());
             }
             return Ok(ChildIter::new(tree, self.node).any(|id| id == other_sexp.node));
         }
@@ -273,11 +286,14 @@ impl SExp {
     #[setter]
     fn set_value(&self, py: Python<'_>, value: &str) -> PyResult<()> {
         self.with_tree_mut(py, |tree| {
-            let node = tree.get_mut(self.node);
-            if !node.is_atom() {
-                return Err(PyTypeError::new_err("cannot set value on a list node"));
+            {
+                let node = tree.get_mut(self.node);
+                if !node.is_atom() {
+                    return Err(PyTypeError::new_err("cannot set value on a list node"));
+                }
+                node.kind = NodeType::Atom(Atom::new(value));
             }
-            node.kind = NodeType::Atom(Atom::new(value));
+            tree.bump_version();
             Ok(())
         })
     }
