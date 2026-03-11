@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::node::{Node, NodeId};
 use crate::memory::{atom::Atom, slab::Slab};
 
@@ -10,9 +8,11 @@ pub struct Tree {
     pub(super) root: NodeId,
     pub(crate) version: u64,
     pub(crate) bare: bool,
-    /// Boxed so `None` costs exactly one pointer word (8 bytes via niche optimisation)
-    /// rather than ~32 bytes inline. No heap allocation until the first `repr()` call.
-    pub(crate) repr_cache: Option<Box<(NodeId, u64, Arc<str>)>>,
+    /// Cached serialization `(node_id, version, text)`. `None` until the first `repr()` call.
+    /// The outer `Box` keeps the struct small (pointer-sized `None` via niche opt).
+    /// The inner `Box<str>` rather than `Arc<str>`: the string is never shared - the GIL
+    /// ensures single-threaded access, so `Arc`'s atomic refcount buys nothing.
+    pub(crate) repr_cache: Option<Box<(NodeId, u64, Box<str>)>>,
 }
 
 impl Tree {
@@ -71,6 +71,8 @@ impl Tree {
     }
 
     /// Returns the cached serialization of `node` if still valid for the current version.
+    /// On a hit, `to_string()` allocates a new `String` from the cached bytes - unavoidable
+    /// because PyO3's `__repr__` requires an owned `String`.
     pub(crate) fn cached_repr(&self, node: NodeId) -> Option<String> {
         match &self.repr_cache {
             Some(entry) if entry.1 == self.version && entry.0 == node => {
@@ -81,7 +83,7 @@ impl Tree {
     }
 
     /// Stores `text` as the cached serialization of `node` at the current version.
-    pub(crate) fn set_repr_cache(&mut self, node: NodeId, text: Arc<str>) {
+    pub(crate) fn set_repr_cache(&mut self, node: NodeId, text: Box<str>) {
         self.repr_cache = Some(Box::new((node, self.version, text)));
     }
 

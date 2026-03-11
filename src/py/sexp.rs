@@ -118,11 +118,17 @@ impl SExp {
                 return Ok(cached);
             }
         }
-        // Slow path: serialize and populate cache.
+        // Slow path: serialize, move buffer into Box<str> for the cache (zero-copy), then produce
+        // the return String from the cached copy.
         self.with_tree_mut(py, |tree| {
             let s = crate::serialize::serialize_node(tree, self.node);
-            tree.set_repr_cache(self.node, Arc::from(s.as_str()));
-            Ok(s)
+            // into_boxed_str() reuses the String's heap buffer (no copy, no new alloc) when the
+            // String has no excess capacity, which is the common case since serialize_node
+            // pre-allocates with_capacity.
+            let boxed = s.into_boxed_str();
+            let result = boxed.to_string();
+            tree.set_repr_cache(self.node, boxed);
+            Ok(result)
         })
     }
 
