@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-03-11
+
+### Added
+
+- `__repr__` caching: the string representation of a node is computed once and
+  stored internally; subsequent calls return the cached value without
+  re-serialising the tree. The cache is invalidated automatically on mutation.
+- Cycle guard on `__repr__` prevents infinite recursion if a tree is somehow
+  constructed with a reference cycle.
+
+### Fixed
+
+- Mutation operations no longer invalidate sibling handles. Version tracking
+  is now scoped correctly so that only truly stale nodes (those detached or
+  superseded by a structural change) raise `StaleNodeError`.
+
+### Changed
+
+- CI: dropped automatic benchmark regression gate (the 15 % median threshold
+  check on every PR).
+- CI: switched to PyPI Trusted Publishing (OIDC) for wheel releases; `sccache`
+  removed from Docker-based Linux wheel builds.
+
+---
+
 ## [2.0.0] - 2026-03-05
 
 Complete rewrite of the extension module in Rust (PyO3 + maturin), replacing
