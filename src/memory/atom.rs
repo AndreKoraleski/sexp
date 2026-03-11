@@ -98,7 +98,11 @@ mod tests {
         // A string of exactly INLINE_CAP bytes must NOT heap-allocate.
         let s = "a".repeat(INLINE_CAP);
         let atom = Atom::new(&s);
-        assert!(is_inline(&atom), "expected inline storage for {}-byte atom", INLINE_CAP);
+        assert!(
+            is_inline(&atom),
+            "expected inline storage for {}-byte atom",
+            INLINE_CAP
+        );
         assert_eq!(atom.as_str(), s);
     }
 
@@ -107,7 +111,11 @@ mod tests {
         // A string of INLINE_CAP + 1 bytes must spill to the heap.
         let s = "a".repeat(INLINE_CAP + 1);
         let atom = Atom::new(&s);
-        assert!(!is_inline(&atom), "expected heap storage for {}-byte atom", INLINE_CAP + 1);
+        assert!(
+            !is_inline(&atom),
+            "expected heap storage for {}-byte atom",
+            INLINE_CAP + 1
+        );
         assert_eq!(atom.as_str(), s);
     }
 
