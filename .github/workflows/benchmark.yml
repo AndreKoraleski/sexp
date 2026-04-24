@@ -25,14 +25,14 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
 
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Build release wheel
         uses: PyO3/maturin-action@v1
@@ -48,7 +48,7 @@ jobs:
 
       - name: Restore benchmark baseline
         id: restore-baseline
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: benchmarks/.results
           key: bench-${{ runner.os }}-${{ github.sha }}
@@ -82,7 +82,7 @@ jobs:
 
       - name: Save benchmark baseline
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: benchmarks/.results
           key: bench-${{ runner.os }}-${{ github.sha }}
